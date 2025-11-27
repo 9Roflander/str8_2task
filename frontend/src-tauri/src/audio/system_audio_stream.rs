@@ -1,18 +1,23 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::Result;
 use log::{error, info, warn};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Notify};
+use tokio::time::{sleep, Duration};
+use futures_util::StreamExt;
 
 use super::devices::AudioDevice;
 use super::pipeline::AudioCapture;
 use super::recording_state::{RecordingState, DeviceType};
 use super::capture::{SystemAudioCapture, SystemAudioStream};
+use super::telemetry::{AudioTelemetryEvent, emit_telemetry_event};
 
 /// System audio stream implementation that integrates with existing pipeline
 pub struct SystemAudioStreamManager {
     device: Arc<AudioDevice>,
-    stream: Option<SystemAudioStream>,
-    _capture_task: Option<tokio::task::JoinHandle<()>>,
+    shutdown: Arc<AtomicBool>,
+    shutdown_notify: Arc<Notify>,
+    capture_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl SystemAudioStreamManager {
@@ -24,54 +29,29 @@ impl SystemAudioStreamManager {
     ) -> Result<Self> {
         info!("Creating system audio stream for device: {}", device.name);
 
-        // Create system audio capture
-        let system_capture = SystemAudioCapture::new()?;
-        let mut system_stream = system_capture.start_system_audio_capture()?;
+        // Build the initial Core Audio tap before starting the supervisor loop
+        let initial_stream = SystemAudioCapture::new()?.start_system_audio_capture()?;
+        info!("Initial system audio stream started at {} Hz", initial_stream.sample_rate());
 
-        // Create audio capture processor to integrate with existing pipeline
-        let audio_capture = AudioCapture::new(
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let shutdown_notify = Arc::new(Notify::new());
+
+        let capture_task = tokio::spawn(run_capture_loop(
             device.clone(),
             state.clone(),
-            system_stream.sample_rate(),
-            2, // Assume stereo for system audio
-            DeviceType::Output,
             recording_sender,
-        );
-
-        // Spawn task to process system audio stream
-        let capture_task = tokio::spawn(async move {
-            use futures_util::StreamExt;
-
-            let mut buffer = Vec::new();
-            let mut frame_count = 0;
-            let frames_per_chunk = 1024; // Process in chunks of 1024 samples
-
-            while let Some(sample) = system_stream.next().await {
-                buffer.push(sample);
-                frame_count += 1;
-
-                // Process when we have enough samples
-                if frame_count >= frames_per_chunk {
-                    audio_capture.process_audio_data(&buffer);
-                    buffer.clear();
-                    frame_count = 0;
-                }
-            }
-
-            // Process any remaining samples
-            if !buffer.is_empty() {
-                audio_capture.process_audio_data(&buffer);
-            }
-
-            info!("System audio capture task ended");
-        });
+            Some(initial_stream),
+            shutdown.clone(),
+            shutdown_notify.clone(),
+        ));
 
         info!("System audio stream started for device: {}", device.name);
 
         Ok(Self {
             device,
-            stream: Some(system_stream),
-            _capture_task: Some(capture_task),
+            shutdown,
+            shutdown_notify,
+            capture_task: Some(capture_task),
         })
     }
 
@@ -81,15 +61,16 @@ impl SystemAudioStreamManager {
     }
 
     /// Stop the system audio stream
-    pub fn stop(mut self) -> Result<()> {
+    pub async fn stop(mut self) -> Result<()> {
         info!("Stopping system audio stream for device: {}", self.device.name);
 
-        if let Some(stream) = self.stream.take() {
-            drop(stream); // This should trigger the stream cleanup
-        }
+        self.shutdown.store(true, Ordering::Release);
+        self.shutdown_notify.notify_waiters();
 
-        if let Some(task) = self._capture_task.take() {
-            task.abort();
+        if let Some(task) = self.capture_task.take() {
+            if let Err(e) = task.await {
+                warn!("System audio capture task aborted: {}", e);
+            }
         }
 
         Ok(())
@@ -178,7 +159,7 @@ impl EnhancedAudioStreamManager {
         }
 
         if let Some(sys_stream) = self.system_stream.take() {
-            sys_stream.stop()?;
+            sys_stream.stop().await?;
         }
 
         info!("Enhanced audio streams stopped");
@@ -229,4 +210,157 @@ mod tests {
         #[cfg(not(target_os = "macos"))]
         assert!(!should_use_enhanced_system_audio(&device));
     }
+}
+
+async fn run_capture_loop(
+    device: Arc<AudioDevice>,
+    state: Arc<RecordingState>,
+    recording_sender: Option<mpsc::UnboundedSender<super::recording_state::AudioChunk>>,
+    mut pending_stream: Option<SystemAudioStream>,
+    shutdown: Arc<AtomicBool>,
+    shutdown_notify: Arc<Notify>,
+) {
+    const FRAMES_PER_CHUNK: usize = 1024;
+    const INITIAL_BACKOFF_MS: u64 = 250;
+    const MAX_BACKOFF_MS: u64 = 5_000;
+
+    let mut backoff_ms = INITIAL_BACKOFF_MS;
+    let mut restart_attempt: u32 = 0;
+
+    while !shutdown.load(Ordering::Acquire) {
+        let stream_result = match pending_stream.take() {
+            Some(stream) => Ok(stream),
+            None => {
+                SystemAudioCapture::new()
+                    .and_then(|capture| capture.start_system_audio_capture())
+            }
+        };
+
+        let system_stream = match stream_result {
+            Ok(stream) => {
+                info!("System audio capture stream ready ({} Hz)", stream.sample_rate());
+                emit_telemetry_event(AudioTelemetryEvent::SystemCaptureRecovered {
+                    sample_rate: stream.sample_rate(),
+                });
+                restart_attempt = 0;
+                stream
+            }
+            Err(err) => {
+                error!("Failed to initialize system audio capture: {}", err);
+                restart_attempt = restart_attempt.saturating_add(1);
+
+                if shutdown.load(Ordering::Acquire) {
+                    break;
+                }
+
+                let delay = Duration::from_millis(backoff_ms);
+                warn!("Retrying system audio capture in {:?}...", delay);
+                emit_telemetry_event(AudioTelemetryEvent::SystemCaptureRestart {
+                    attempt: restart_attempt,
+                    error: err.to_string(),
+                    backoff_ms,
+                });
+
+                tokio::select! {
+                    _ = sleep(delay) => {},
+                    _ = shutdown_notify.notified() => break,
+                }
+
+                backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
+                continue;
+            }
+        };
+
+        backoff_ms = INITIAL_BACKOFF_MS;
+
+        let audio_capture = AudioCapture::new(
+            device.clone(),
+            state.clone(),
+            system_stream.sample_rate(),
+            2, // Assume stereo for system audio
+            DeviceType::Output,
+            recording_sender.clone(),
+        );
+
+        match pump_system_audio(
+            system_stream,
+            audio_capture,
+            FRAMES_PER_CHUNK,
+            shutdown.clone(),
+            shutdown_notify.clone(),
+        ).await {
+            Ok(_) => {
+                info!("System audio capture loop exited after shutdown signal");
+                break;
+            }
+            Err(err) => {
+                warn!("System audio stream interrupted: {}", err);
+                restart_attempt = restart_attempt.saturating_add(1);
+
+                if shutdown.load(Ordering::Acquire) {
+                    break;
+                }
+
+                emit_telemetry_event(AudioTelemetryEvent::SystemCaptureRestart {
+                    attempt: restart_attempt,
+                    error: err.to_string(),
+                    backoff_ms,
+                });
+
+                let delay = Duration::from_millis(backoff_ms);
+                tokio::select! {
+                    _ = sleep(delay) => {},
+                    _ = shutdown_notify.notified() => break,
+                }
+
+                backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
+                continue;
+            }
+        }
+    }
+
+    info!("System audio capture supervisor exiting");
+    emit_telemetry_event(AudioTelemetryEvent::SystemCaptureShutdown);
+}
+
+async fn pump_system_audio(
+    mut system_stream: SystemAudioStream,
+    audio_capture: AudioCapture,
+    frames_per_chunk: usize,
+    shutdown: Arc<AtomicBool>,
+    shutdown_notify: Arc<Notify>,
+) -> Result<()> {
+    let mut buffer = Vec::with_capacity(frames_per_chunk);
+
+    loop {
+        tokio::select! {
+            _ = shutdown_notify.notified(), if shutdown.load(Ordering::Acquire) => {
+                info!("Shutdown signal received for system audio capture");
+                break;
+            }
+            sample = system_stream.next() => {
+                match sample {
+                    Some(sample) => {
+                        buffer.push(sample);
+                        if buffer.len() >= frames_per_chunk {
+                            audio_capture.process_audio_data(&buffer);
+                            buffer.clear();
+                        }
+                    }
+                    None => {
+                        if !buffer.is_empty() {
+                            audio_capture.process_audio_data(&buffer);
+                        }
+                        anyhow::bail!("System audio stream ended unexpectedly");
+                    }
+                }
+            }
+        }
+    }
+
+    if !buffer.is_empty() {
+        audio_capture.process_audio_data(&buffer);
+    }
+
+    Ok(())
 }

@@ -394,19 +394,33 @@ impl AudioStreamManager {
         // Start system audio stream
         if let Some(sys_device) = system_device {
             info!("🔊 Creating system audio stream: {} (backend: {:?})", sys_device.name, backend);
+            #[cfg(target_os = "macos")]
+            {
+                if backend == super::capture::AudioCaptureBackend::CoreAudio {
+                    info!("🎧 Using Core Audio tap for system audio - this captures audio from ALL apps");
+                    info!("📍 If audio is silent, check: System Settings → Privacy & Security → Audio Capture");
+                } else {
+                    info!("🖥️ Using ScreenCaptureKit for system audio - requires Screen Recording permission");
+                    info!("📍 If audio is silent, check: System Settings → Privacy & Security → Screen Recording");
+                }
+            }
             match AudioStream::create(sys_device.clone(), self.state.clone(), DeviceType::System, recording_sender.clone(), filter_apps.clone()).await {
                 Ok(stream) => {
                     self.state.set_system_device(sys_device);
                     self.system_stream = Some(stream);
                     info!("✅ System audio stream created with {:?} backend", backend);
+                    #[cfg(target_os = "macos")]
+                    info!("💡 To capture meeting audio: ensure the meeting app (Zoom/Meet/Teams) is playing audio");
                 }
                 Err(e) => {
                     warn!("⚠️ Failed to create system audio stream: {}", e);
+                    warn!("💡 System audio capture failed - only microphone audio will be recorded");
                     // Don't fail if only system audio fails
                 }
             }
         } else {
             info!("ℹ️ No system device specified, skipping system audio stream");
+            warn!("⚠️ Without system audio, meeting participants' voices won't be captured!");
         }
 
         // Ensure at least one stream was created

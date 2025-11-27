@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::path::PathBuf;
 use tauri::{AppHandle, Runtime};
+use tauri_plugin_store::StoreExt;
 use log::{info, warn};
 
 #[cfg(target_os = "macos")]
@@ -94,34 +96,61 @@ pub fn generate_recording_filename(format: &str) -> String {
 
 /// Load recording preferences from store
 pub async fn load_recording_preferences<R: Runtime>(
-    _app: &AppHandle<R>,
+    app: &AppHandle<R>,
 ) -> Result<RecordingPreferences> {
     // Try to load from Tauri store, fallback to defaults
-    // For now, return defaults - can be enhanced to use tauri-plugin-store
-    #[cfg(target_os = "macos")]
-    let prefs = {
-        let mut p = RecordingPreferences::default();
-        let backend = crate::audio::capture::get_current_backend();
-        p.system_audio_backend = Some(backend.to_string());
-        p
+    let store = app.store("recording-preferences.json")?;
+    
+    // Load preferences from store (returns JsonValue)
+    let mut prefs = if let Some(json_value) = store.get("preferences") {
+        // Deserialize JsonValue to RecordingPreferences
+        match serde_json::from_value::<RecordingPreferences>(json_value.clone()) {
+            Ok(saved_prefs) => {
+                info!("✅ Loaded recording preferences from store");
+                saved_prefs
+            }
+            Err(e) => {
+                warn!("⚠️ Failed to deserialize preferences from store: {}, using defaults", e);
+                RecordingPreferences::default()
+            }
+        }
+    } else {
+        info!("ℹ️ No saved preferences found, using defaults");
+        RecordingPreferences::default()
     };
 
-    #[cfg(not(target_os = "macos"))]
-    let prefs = RecordingPreferences::default();
+    // Ensure backend is synced with current global config (for backward compatibility)
+    #[cfg(target_os = "macos")]
+    {
+        let backend = crate::audio::capture::get_current_backend();
+        // Only override if not set in preferences
+        if prefs.system_audio_backend.is_none() {
+            prefs.system_audio_backend = Some(backend.to_string());
+        }
+    }
 
-    info!("Loaded recording preferences: save_folder={:?}, auto_save={}, format={}",
-          prefs.save_folder, prefs.auto_save, prefs.file_format);
+    info!("Loaded recording preferences: save_folder={:?}, auto_save={}, format={}, filtered_apps={:?}",
+          prefs.save_folder, prefs.auto_save, prefs.file_format, prefs.filtered_apps);
     Ok(prefs)
 }
 
 /// Save recording preferences to store
 pub async fn save_recording_preferences<R: Runtime>(
-    _app: &AppHandle<R>,
+    app: &AppHandle<R>,
     preferences: &RecordingPreferences,
 ) -> Result<()> {
-    // For now, just log - can be enhanced to use tauri-plugin-store
-    info!("Saving recording preferences: save_folder={:?}, auto_save={}, format={}",
-          preferences.save_folder, preferences.auto_save, preferences.file_format);
+    info!("💾 Saving recording preferences: save_folder={:?}, auto_save={}, format={}, filtered_apps={:?}",
+          preferences.save_folder, preferences.auto_save, preferences.file_format, preferences.filtered_apps);
+
+    // Serialize preferences to JsonValue
+    let json_value = serde_json::to_value(preferences)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize preferences: {}", e))?;
+
+    // Save to Tauri store
+    let store = app.store("recording-preferences.json")?;
+    store.set("preferences", json_value);
+    store.save()?;
+    info!("✅ Recording preferences saved to store");
 
     // Save backend preference to global config
     #[cfg(target_os = "macos")]

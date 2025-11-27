@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { 
     Loader2, Plus, RefreshCw, CheckCircle, AlertCircle, 
     Search, MessageSquare, ArrowRightCircle, Edit2, X,
-    ExternalLink, Eye, Save
+    ExternalLink, Eye, Save, Send, HelpCircle, Wifi, WifiOff
 } from 'lucide-react';
+import { useExtensionConnection } from '@/hooks/useExtensionConnection';
 
 interface JiraTask {
     summary: string;
@@ -72,11 +73,14 @@ interface JiraPanelProps {
     summaryText?: string;  // Optional meeting summary for better task generation
 }
 
-type TabType = 'generate' | 'search';
+type TabType = 'generate' | 'search' | 'questions';
 
 export function JiraPanel({ meetingId, hasTranscript, transcriptText, summaryText }: JiraPanelProps) {
     // Tab state
     const [activeTab, setActiveTab] = useState<TabType>('generate');
+    
+    // Extension connection hook
+    const { isConnected, status: extensionStatus, sendToChat, sendQuestions } = useExtensionConnection();
     
     // Common state
     const [loadingConfig, setLoadingConfig] = useState(true);
@@ -118,6 +122,13 @@ export function JiraPanel({ meetingId, hasTranscript, transcriptText, summaryTex
     const [fullIssueDetails, setFullIssueDetails] = useState<any>(null);
     
     const [editModal, setEditModal] = useState<{ issue: JiraIssue; isOpen: boolean } | null>(null);
+    
+    // Questions tab state
+    const [questions, setQuestions] = useState<string[]>([]);
+    const [generatingQuestions, setGeneratingQuestions] = useState(false);
+    const [selectedQuestions, setSelectedQuestions] = useState<Set<number>>(new Set());
+    const [sendingQuestions, setSendingQuestions] = useState(false);
+    const [questionsSent, setQuestionsSent] = useState(false);
     const [editSummary, setEditSummary] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editPriority, setEditPriority] = useState('');
@@ -545,6 +556,111 @@ export function JiraPanel({ meetingId, hasTranscript, transcriptText, summaryTex
         }
     };
 
+    // === Questions Tab Functions ===
+    const generateClarifyingQuestions = async () => {
+        try {
+            const textToAnalyze = summaryText && summaryText.trim() ? summaryText : transcriptText;
+            
+            if (!textToAnalyze || textToAnalyze.trim() === '') {
+                setError('No transcript or summary available to generate questions from.');
+                return;
+            }
+
+            setGeneratingQuestions(true);
+            setError(null);
+            setQuestionsSent(false);
+
+            let modelProvider = 'openai';
+            let modelName = 'gpt-4o';
+
+            try {
+                const modelConfig = await invoke('api_get_model_config') as any;
+                if (modelConfig && modelConfig.provider && modelConfig.model) {
+                    modelProvider = modelConfig.provider;
+                    modelName = modelConfig.model;
+                }
+            } catch (error) {
+                console.warn('Failed to load model config, using OpenAI GPT-4o as fallback');
+            }
+
+            const response = await invoke('api_generate_clarifying_questions', {
+                request: {
+                    meeting_id: meetingId,
+                    model: modelProvider,
+                    model_name: modelName,
+                    text: textToAnalyze,
+                    project_key: selectedProject || null,
+                }
+            }) as { questions: string[]; count: number };
+
+            setQuestions(response.questions);
+            // Select all questions by default
+            setSelectedQuestions(new Set(response.questions.map((_, i) => i)));
+            
+            if (response.questions.length === 0) {
+                setError('No clarifying questions found. The transcript may already contain all necessary details.');
+            }
+        } catch (error: any) {
+            console.error('Failed to generate questions:', error);
+            setError(`Failed to generate questions: ${error.message || error}`);
+        } finally {
+            setGeneratingQuestions(false);
+        }
+    };
+
+    const toggleQuestionSelection = (index: number) => {
+        setSelectedQuestions(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(index)) {
+                newSet.delete(index);
+            } else {
+                newSet.add(index);
+            }
+            return newSet;
+        });
+    };
+
+    const selectAllQuestions = () => {
+        setSelectedQuestions(new Set(questions.map((_, i) => i)));
+    };
+
+    const deselectAllQuestions = () => {
+        setSelectedQuestions(new Set());
+    };
+
+    const sendSelectedQuestions = async () => {
+        const selectedQs = questions.filter((_, i) => selectedQuestions.has(i));
+        
+        if (selectedQs.length === 0) {
+            setError('Please select at least one question to send.');
+            return;
+        }
+
+        if (!isConnected) {
+            setError('Browser extension is not connected. Please make sure the extension is installed and the backend is running.');
+            return;
+        }
+
+        try {
+            setSendingQuestions(true);
+            setError(null);
+
+            const result = await sendQuestions(selectedQs);
+            
+            if (result.success) {
+                setQuestionsSent(true);
+                setError(null);
+            } else {
+                setError(`Failed to send some questions: ${result.sent}/${result.total} sent successfully.`);
+            }
+        } catch (error: any) {
+            console.error('Failed to send questions:', error);
+            setError(`Failed to send questions to chat: ${error.message || error}`);
+        } finally {
+            setSendingQuestions(false);
+        }
+    };
+
     // === Status Badge Helper ===
     const getStatusColor = (status: JiraIssue['fields']['status']) => {
         const category = status.statusCategory?.colorName?.toLowerCase();
@@ -630,6 +746,32 @@ export function JiraPanel({ meetingId, hasTranscript, transcriptText, summaryTex
                     >
                         Search Existing
                     </button>
+                    <button
+                        onClick={() => setActiveTab('questions')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                            activeTab === 'questions'
+                                ? 'border-purple-500 text-purple-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        <HelpCircle className="w-4 h-4" />
+                        Ask Questions
+                    </button>
+                    
+                    {/* Extension Status Indicator */}
+                    <div className="ml-auto flex items-center px-2">
+                        {isConnected ? (
+                            <span className="flex items-center text-xs text-green-600" title="Browser extension connected">
+                                <Wifi className="w-3.5 h-3.5 mr-1" />
+                                Connected
+                            </span>
+                        ) : (
+                            <span className="flex items-center text-xs text-gray-400" title="Browser extension not connected">
+                                <WifiOff className="w-3.5 h-3.5 mr-1" />
+                                Disconnected
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -798,7 +940,7 @@ export function JiraPanel({ meetingId, hasTranscript, transcriptText, summaryTex
                             )}
                         </div>
                     </div>
-                ) : (
+                ) : activeTab === 'search' ? (
                     /* Search Tab */
                     <div className="p-4">
                         {/* Search Input */}
@@ -909,6 +1051,158 @@ export function JiraPanel({ meetingId, hasTranscript, transcriptText, summaryTex
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                ) : (
+                    /* Questions Tab */
+                    <div className="p-4">
+                        {/* Info Banner */}
+                        <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                            <div className="flex items-start gap-2">
+                                <HelpCircle className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm text-purple-800 font-medium">Ask Clarifying Questions</p>
+                                    <p className="text-xs text-purple-700 mt-1">
+                                        Generate questions to ask meeting participants about missing task details 
+                                        (assignees, deadlines, priorities). Questions will be posted directly to 
+                                        the meeting chat.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Connection Warning */}
+                        {!isConnected && (
+                            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                                <div className="flex items-start gap-2">
+                                    <WifiOff className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-sm text-amber-800 font-medium">Browser Extension Not Connected</p>
+                                        <p className="text-xs text-amber-700 mt-1">
+                                            To send questions to the meeting chat, ensure the browser extension is 
+                                            installed and you have an active meeting tab open.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Generate Button */}
+                        <div className="mb-4 flex justify-between items-center">
+                            <div className="text-sm text-gray-600">
+                                {questions.length > 0 && (
+                                    <span>{selectedQuestions.size} of {questions.length} selected</span>
+                                )}
+                            </div>
+                            <button
+                                onClick={generateClarifyingQuestions}
+                                disabled={generatingQuestions || (!hasTranscript && !summaryText)}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {generatingQuestions ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Generating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 mr-2" />
+                                        Generate Questions
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Questions List */}
+                        <div className="space-y-3">
+                            {questions.length === 0 && !generatingQuestions ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    <HelpCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                    <p>No questions generated yet.</p>
+                                    <p className="text-sm mt-2">
+                                        Click "Generate Questions" to analyze the transcript for items 
+                                        that need clarification.
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Select All / Deselect All */}
+                                    {questions.length > 0 && (
+                                        <div className="flex gap-2 mb-2">
+                                            <button
+                                                onClick={selectAllQuestions}
+                                                className="text-xs text-purple-600 hover:text-purple-800"
+                                            >
+                                                Select All
+                                            </button>
+                                            <span className="text-gray-300">|</span>
+                                            <button
+                                                onClick={deselectAllQuestions}
+                                                className="text-xs text-purple-600 hover:text-purple-800"
+                                            >
+                                                Deselect All
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {questions.map((question, index) => (
+                                        <div 
+                                            key={index} 
+                                            className={`bg-white rounded-lg shadow-sm border p-4 cursor-pointer transition-colors ${
+                                                selectedQuestions.has(index) 
+                                                    ? 'border-purple-300 bg-purple-50' 
+                                                    : 'border-gray-200 hover:border-purple-200'
+                                            }`}
+                                            onClick={() => toggleQuestionSelection(index)}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedQuestions.has(index)}
+                                                    onChange={() => toggleQuestionSelection(index)}
+                                                    className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <div className="flex-1">
+                                                    <p className="text-sm text-gray-900">{question}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Send Button */}
+                                    {questions.length > 0 && (
+                                        <div className="mt-6 flex justify-end">
+                                            <button
+                                                onClick={sendSelectedQuestions}
+                                                disabled={sendingQuestions || selectedQuestions.size === 0 || !isConnected}
+                                                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                    questionsSent 
+                                                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' 
+                                                        : 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
+                                                }`}
+                                            >
+                                                {sendingQuestions ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        Sending...
+                                                    </>
+                                                ) : questionsSent ? (
+                                                    <>
+                                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                                        Sent to Chat!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Send className="w-4 h-4 mr-2" />
+                                                        Send to Meeting Chat ({selectedQuestions.size})
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

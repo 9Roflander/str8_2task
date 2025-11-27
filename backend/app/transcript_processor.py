@@ -943,6 +943,139 @@ Meeting Content (may be a summary or transcript):
             trimmed = trimmed[:-3]
         return trimmed.strip()
 
+    async def generate_clarifying_questions(
+        self, 
+        text: str, 
+        model: str, 
+        model_name: str,
+        project_key: Optional[str] = None
+    ) -> List[str]:
+        """
+        Generate clarifying questions about tasks from meeting transcript.
+        
+        Analyzes the transcript to identify items that need clarification:
+        - Missing assignees for action items
+        - Unclear deadlines or timelines
+        - Ambiguous requirements or scope
+        - Missing priority information
+        - Unclear dependencies or blockers
+        
+        Args:
+            text: The meeting transcript or summary text
+            model: The AI model provider ('claude', 'ollama', 'groq', 'openai')
+            model_name: The specific model name
+            project_key: Optional Jira project key for context
+            
+        Returns:
+            List of clarifying question strings suitable for posting to meeting chat
+        """
+        logger.info(f"Generating clarifying questions with model={model}, model_name={model_name}")
+        
+        llm = None
+        
+        try:
+            # Initialize the AI model (same as extract_jira_tasks)
+            if model == "claude":
+                api_key = await db.get_api_key("claude")
+                if not api_key:
+                    raise ValueError("Anthropic API key not configured")
+                llm = AnthropicModel(model_name, provider=AnthropicProvider(api_key=api_key))
+            elif model == "ollama":
+                ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+                ollama_base_url = f"{ollama_host}/v1"
+                llm = OpenAIModel(model_name, provider=OpenAIProvider(base_url=ollama_base_url))
+            elif model == "gemini":
+                api_key = await db.get_api_key("gemini")
+                if not api_key:
+                    api_key = os.getenv("GOOGLE_API_KEY", "")
+                if not api_key:
+                    raise ValueError("Gemini API key not configured")
+                provider = GoogleGLAProvider(api_key=api_key)
+                llm = GeminiModel(model_name, provider=provider)
+            elif model == "groq":
+                api_key = await db.get_api_key("groq")
+                if not api_key:
+                    raise ValueError("Groq API key not configured")
+                llm = GroqModel(model_name, provider=GroqProvider(api_key=api_key))
+            elif model == "openai":
+                api_key = await db.get_api_key("openai")
+                if not api_key:
+                    raise ValueError("OpenAI API key not configured")
+                llm = OpenAIModel(model_name, provider=OpenAIProvider(api_key=api_key))
+            else:
+                raise ValueError(f"Unsupported model provider: {model}")
+
+            # Create agent for question generation
+            agent = Agent(
+                llm,
+                result_type=List[str],
+                result_retries=2,
+            )
+
+            project_context = f"Project: {project_key}" if project_key else ""
+            
+            prompt = f"""
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+{project_context}
+
+Analyze the following meeting content and generate **3-5 concise clarifying questions** that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+
+IMPORTANT GUIDELINES:
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Don't ask about items that are already clearly defined
+- Each question should address a DIFFERENT gap in information
+- Format questions conversationally, as if you're asking in the meeting
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "@John, what's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "Who should I contact about the design requirements?"
+
+Meeting Content:
+---
+{text}
+---
+
+Return ONLY a JSON array of question strings, e.g.:
+["Question 1?", "Question 2?", "Question 3?"]
+
+Generate questions that will help clarify the action items and tasks discussed.
+"""
+
+            result = await agent.run(prompt)
+            questions = result.data if hasattr(result, 'data') else result
+            
+            # Validate and clean questions
+            if isinstance(questions, list):
+                cleaned_questions = []
+                for q in questions:
+                    if isinstance(q, str) and q.strip() and '?' in q:
+                        cleaned_questions.append(q.strip())
+                
+                logger.info(f"Generated {len(cleaned_questions)} clarifying questions")
+                return cleaned_questions[:5]  # Limit to 5 questions max
+            
+            logger.warning(f"Unexpected result type from agent: {type(questions)}")
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error generating clarifying questions: {str(e)}", exc_info=True)
+            # Return empty list on error rather than raising
+            return []
+
     def cleanup(self):
         """Clean up resources used by the TranscriptProcessor."""
         logger.info("Cleaning up TranscriptProcessor resources")

@@ -14,7 +14,7 @@ use ringbuf::{
 use log::{error, info, warn};
 
 #[cfg(target_os = "macos")]
-use cidre::{arc, av, cat, cf, core_audio as ca, os};
+use cidre::{arc, av, cat, cf, core_audio as ca, os, ns};
 
 /// Waker state for async polling
 struct WakerState {
@@ -104,8 +104,18 @@ impl CoreAudioCapture {
                 // Get all processes using audio and build exclude array
                 match ca::System::processes() {
                     Ok(all_processes) => {
-                        // Find PIDs of selected apps
+                        // Normalize selected app names for case-insensitive matching
+                        let selected_apps_normalized: Vec<String> = selected_apps
+                            .iter()
+                            .map(|s| s.to_lowercase().trim().to_string())
+                            .collect();
+                        
+                        info!("🎙️ CoreAudio: Normalized selected apps for matching: {:?}", selected_apps_normalized);
+                        
+                        // Find PIDs of selected apps with improved matching
                         let mut selected_pids: Vec<i32> = Vec::new();
+                        let mut all_audio_processes: Vec<(String, i32)> = Vec::new();
+                        
                         for process in &all_processes {
                             if let Ok(pid) = process.pid() {
                                 if let Some(running_app) = cidre::ns::RunningApp::with_pid(pid) {
@@ -114,16 +124,42 @@ impl CoreAudioCapture {
                                         .map(|s| s.to_string())
                                         .unwrap_or_default();
                                     
-                                    if selected_apps.contains(&name) {
+                                    // Log all audio processes for debugging
+                                    all_audio_processes.push((name.clone(), pid));
+                                    
+                                    // Case-insensitive matching with partial support
+                                    // Check if any selected app name matches (case-insensitive, partial match)
+                                    let name_normalized = name.to_lowercase();
+                                    let matched = selected_apps_normalized.iter().any(|selected| {
+                                        // Exact match (case-insensitive)
+                                        name_normalized == *selected ||
+                                        // Partial match: selected app name is contained in process name
+                                        name_normalized.contains(selected) ||
+                                        // Partial match: process name is contained in selected app name
+                                        selected.contains(&name_normalized)
+                                    });
+                                    
+                                    if matched {
                                         selected_pids.push(pid);
-                                        info!("✅ CoreAudio: Including app '{}' (PID: {})", name, pid);
+                                        info!("✅ CoreAudio: Including app '{}' (PID: {}) - matched filter", name, pid);
                                     }
                                 }
                             }
                         }
                         
+                        // Log all available audio processes for debugging
+                        if !all_audio_processes.is_empty() {
+                            info!("🎙️ CoreAudio: All audio processes found ({} total):", all_audio_processes.len());
+                            for (name, pid) in &all_audio_processes {
+                                info!("   - '{}' (PID: {})", name, pid);
+                            }
+                        }
+                        
                         if selected_pids.is_empty() {
-                            warn!("⚠️ CoreAudio: No matching processes found for selected apps, using global tap");
+                            warn!("⚠️ CoreAudio: No matching processes found for selected apps: {:?}", selected_apps);
+                            warn!("⚠️ CoreAudio: Available audio processes: {:?}", 
+                                  all_audio_processes.iter().map(|(n, _)| n.clone()).collect::<Vec<_>>());
+                            warn!("⚠️ CoreAudio: Falling back to global tap (capturing all audio)");
                             cidre::ns::Array::new()
                         } else {
                             // Get all PIDs using audio
@@ -141,16 +177,15 @@ impl CoreAudioCapture {
                             info!("🎙️ CoreAudio: Filtering - including {} apps, excluding {} processes", 
                                   selected_pids.len(), exclude_pids.len());
                             
-                            // Convert PIDs to NSArray of CFNumbers
-                            // Note: Core Audio expects an array of process IDs to exclude
-                            // For now, we'll skip the actual filtering implementation
-                            // as it requires complex CFArray to NSArray conversion
-                            // TODO: Implement proper NSArray creation from process PIDs
+                            // Convert PIDs to NSArray of NSNumbers for process exclusion
+                            // Core Audio's with_mono_global_tap_excluding_processes expects NSArray
                             if !exclude_pids.is_empty() {
-                                info!("🎙️ CoreAudio: Found {} processes to exclude, but filtering not yet fully implemented", exclude_pids.len());
-                                info!("🎙️ CoreAudio: Would exclude PIDs: {:?}", exclude_pids);
+                                info!("✅ CoreAudio: Creating exclude array with {} PIDs: {:?}", exclude_pids.len(), exclude_pids);
+                                arc::R::<cidre::ns::Array<cidre::ns::Number>>::from(&exclude_pids[..])
+                            } else {
+                                info!("🎙️ CoreAudio: No processes to exclude, using global tap");
+                                cidre::ns::Array::new()
                             }
-                            cidre::ns::Array::new()
                         }
                     }
                     Err(e) => {
@@ -376,6 +411,19 @@ impl CoreAudioCapture {
 /// Process audio data from the IO proc callback
 #[cfg(target_os = "macos")]
 fn process_audio_data(ctx: &mut AudioContext, data: &[f32]) {
+    static BATCH_COUNT: AtomicU32 = AtomicU32::new(0);
+    let batch = BATCH_COUNT.fetch_add(1, Ordering::Relaxed);
+
+    if batch % 100 == 0 {
+        if data.is_empty() {
+            warn!("⚠️ CoreAudio: Received empty data batch #{}", batch);
+        } else {
+            let rms = data.iter().map(|&s| s * s).sum::<f32>() / data.len() as f32;
+            info!("✅ CoreAudio: Received batch #{}: {} samples, RMS: {:.4}, first: {:.4}, last: {:.4}",
+                  batch, data.len(), rms.sqrt(), data[0], data[data.len() - 1]);
+        }
+    }
+
     // Push raw samples directly to ring buffer
     // Let the pipeline handle all gain adjustments (post-mix 3x gain + mic normalization)
     let buffer_size = data.len();

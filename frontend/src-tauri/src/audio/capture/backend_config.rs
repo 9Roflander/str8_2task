@@ -76,7 +76,7 @@ impl AudioCaptureBackend {
     /// Get default backend for current platform
     pub fn default() -> Self {
         #[cfg(target_os = "macos")]
-        return AudioCaptureBackend::CoreAudio;
+        return AudioCaptureBackend::ScreenCaptureKit;
 
         #[cfg(not(target_os = "macos"))]
         return AudioCaptureBackend::ScreenCaptureKit;
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn test_default_backend() {
         #[cfg(target_os = "macos")]
-        assert_eq!(AudioCaptureBackend::default(), AudioCaptureBackend::CoreAudio);
+        assert_eq!(AudioCaptureBackend::default(), AudioCaptureBackend::ScreenCaptureKit);
 
         #[cfg(not(target_os = "macos"))]
         assert_eq!(AudioCaptureBackend::default(), AudioCaptureBackend::ScreenCaptureKit);
@@ -203,7 +203,7 @@ mod tests {
 
         // Should start with default
         #[cfg(target_os = "macos")]
-        assert_eq!(config.get(), AudioCaptureBackend::CoreAudio);
+        assert_eq!(config.get(), AudioCaptureBackend::ScreenCaptureKit);
 
         #[cfg(not(target_os = "macos"))]
         assert_eq!(config.get(), AudioCaptureBackend::ScreenCaptureKit);
@@ -218,7 +218,7 @@ mod tests {
         // Test reset
         config.reset();
         #[cfg(target_os = "macos")]
-        assert_eq!(config.get(), AudioCaptureBackend::CoreAudio);
+        assert_eq!(config.get(), AudioCaptureBackend::ScreenCaptureKit);
 
         #[cfg(not(target_os = "macos"))]
         assert_eq!(config.get(), AudioCaptureBackend::ScreenCaptureKit);

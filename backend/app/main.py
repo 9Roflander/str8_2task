@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -11,7 +11,9 @@ import json
 from threading import Lock
 from .transcript_processor import TranscriptProcessor
 from .jira_service import JiraService
+from .websocket_hub import extension_manager, handle_extension_websocket
 import time
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -991,6 +993,147 @@ async def transition_jira_issue(issue_key: str, transition: JiraTransitionReques
     except Exception as e:
         logger.error(f"Error transitioning Jira issue {issue_key}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# WebSocket Endpoints for Browser Extension Communication
+# ============================================================================
+
+class SendToChatRequest(BaseModel):
+    """Request model for sending a message to meeting chat"""
+    message: str
+    platform: Optional[str] = None  # google-meet, zoom, microsoft-teams, or None for auto
+
+class SendQuestionsToChatRequest(BaseModel):
+    """Request model for sending multiple questions to meeting chat"""
+    questions: List[str]
+    delay_between: Optional[float] = 2.0
+    platform: Optional[str] = None
+
+class GenerateQuestionsRequest(BaseModel):
+    """Request model for generating clarifying questions from transcript"""
+    meeting_id: str
+    model: str = "openai"
+    model_name: str = "gpt-4o"
+    text: Optional[str] = None  # Raw transcript text (optional)
+    project_key: Optional[str] = None  # Jira project for context
+
+@app.websocket("/ws/extension")
+async def websocket_extension_endpoint(
+    websocket: WebSocket,
+    connection_id: Optional[str] = Query(default=None)
+):
+    """
+    WebSocket endpoint for browser extension connections.
+    
+    Extensions connect here to receive messages that should be posted to meeting chats.
+    """
+    # Generate connection ID if not provided
+    if not connection_id:
+        connection_id = f"ext-{uuid.uuid4().hex[:8]}"
+    
+    await handle_extension_websocket(websocket, connection_id)
+
+@app.get("/extension/status")
+async def get_extension_status():
+    """Get the current status of connected browser extensions"""
+    return extension_manager.get_status()
+
+@app.post("/extension/send-to-chat")
+async def send_to_chat(request: SendToChatRequest):
+    """
+    Send a message to the meeting chat via browser extension.
+    
+    The message will be posted to the active meeting (Google Meet, Zoom, or Teams).
+    """
+    try:
+        result = await extension_manager.send_message_to_chat(
+            message=request.message,
+            platform=request.platform
+        )
+        
+        if not result.get("success") and not result.get("queued"):
+            raise HTTPException(
+                status_code=503, 
+                detail="Failed to send message to chat"
+            )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending to chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/extension/send-questions")
+async def send_questions_to_chat(request: SendQuestionsToChatRequest):
+    """
+    Send multiple clarifying questions to the meeting chat.
+    
+    Questions will be posted with delays between them to avoid flooding.
+    """
+    try:
+        if not request.questions:
+            raise HTTPException(status_code=400, detail="No questions provided")
+        
+        result = await extension_manager.send_questions_to_chat(
+            questions=request.questions,
+            delay_between=request.delay_between or 2.0,
+            platform=request.platform
+        )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending questions to chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/extension/generate-questions")
+async def generate_clarifying_questions(request: GenerateQuestionsRequest):
+    """
+    Generate clarifying questions about tasks from meeting transcript.
+    
+    Uses LLM to analyze the transcript and identify items that need clarification
+    (missing assignees, unclear deadlines, ambiguous requirements).
+    """
+    try:
+        # Get transcript text
+        if request.text and request.text.strip():
+            text = request.text.strip()
+        else:
+            # Fetch from database
+            transcript_data = await db.get_transcript_data(request.meeting_id)
+            if not transcript_data or not transcript_data.get("transcript_text"):
+                raise HTTPException(status_code=404, detail="Transcript not found")
+            text = transcript_data["transcript_text"]
+        
+        # Generate questions using the transcript processor
+        questions = await processor.transcript_processor.generate_clarifying_questions(
+            text=text,
+            model=request.model,
+            model_name=request.model_name,
+            project_key=request.project_key
+        )
+        
+        return {
+            "questions": questions,
+            "meeting_id": request.meeting_id,
+            "count": len(questions)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating questions: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/extension/ping")
+async def ping_extensions():
+    """Ping all connected extensions to check health"""
+    return await extension_manager.ping_all()
+
+# ============================================================================
+# Lifecycle Events
+# ============================================================================
 
 @app.on_event("shutdown")
 async def shutdown_event():

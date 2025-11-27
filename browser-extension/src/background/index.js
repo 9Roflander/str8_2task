@@ -1,6 +1,221 @@
 import { generateTestMessage } from './test-api.js';
 
-// Message queue for handling multiple LLM messages
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const BACKEND_WS_URL = 'ws://localhost:5167/ws/extension';
+const RECONNECT_DELAY_MS = 5000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+
+// ============================================================================
+// WebSocket Connection Manager
+// ============================================================================
+
+class WebSocketManager {
+    constructor(url) {
+        this.url = url;
+        this.ws = null;
+        this.connectionId = null;
+        this.reconnectAttempts = 0;
+        this.isConnecting = false;
+        this.shouldReconnect = true;
+    }
+
+    connect() {
+        if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
+            console.log('WebSocket already connected or connecting');
+            return;
+        }
+
+        this.isConnecting = true;
+        this.connectionId = `ext-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`;
+        
+        const wsUrl = `${this.url}?connection_id=${this.connectionId}`;
+        console.log(`Connecting to WebSocket: ${wsUrl}`);
+
+        try {
+            this.ws = new WebSocket(wsUrl);
+
+            this.ws.onopen = () => {
+                console.log('WebSocket connected to backend');
+                this.isConnecting = false;
+                this.reconnectAttempts = 0;
+                
+                // Send initial status
+                this.sendStatus();
+            };
+
+            this.ws.onmessage = (event) => {
+                this.handleMessage(event.data);
+            };
+
+            this.ws.onclose = (event) => {
+                console.log(`WebSocket closed: ${event.code} - ${event.reason}`);
+                this.isConnecting = false;
+                this.ws = null;
+                
+                if (this.shouldReconnect) {
+                    this.scheduleReconnect();
+                }
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.isConnecting = false;
+            };
+        } catch (error) {
+            console.error('Failed to create WebSocket:', error);
+            this.isConnecting = false;
+            this.scheduleReconnect();
+        }
+    }
+
+    scheduleReconnect() {
+        if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            console.warn('Max reconnection attempts reached, stopping');
+            return;
+        }
+
+        this.reconnectAttempts++;
+        const delay = RECONNECT_DELAY_MS * Math.min(this.reconnectAttempts, 5);
+        console.log(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
+
+        setTimeout(() => {
+            if (this.shouldReconnect) {
+                this.connect();
+            }
+        }, delay);
+    }
+
+    handleMessage(data) {
+        try {
+            const message = JSON.parse(data);
+            console.log('Received from backend:', message);
+
+            switch (message.action) {
+                case 'postMessage':
+                    this.handlePostMessage(message);
+                    break;
+                case 'ping':
+                    this.sendPong();
+                    break;
+                default:
+                    console.log('Unknown action:', message.action);
+            }
+        } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+        }
+    }
+
+    async handlePostMessage(message) {
+        const { message: text, platform } = message;
+        
+        if (!text) {
+            console.error('No message text provided');
+            this.sendError('No message text provided');
+            return;
+        }
+
+        console.log(`Posting message to chat: "${text.substring(0, 50)}..."`);
+
+        try {
+            // Find a meeting tab
+            const tabs = await chrome.tabs.query({});
+            const meetingTab = tabs.find(tab => 
+                tab.url && (
+                    tab.url.includes('meet.google.com') ||
+                    tab.url.includes('zoom.us') ||
+                    tab.url.includes('teams.microsoft.com') ||
+                    tab.url.includes('teams.live.com')
+                )
+            );
+
+            if (!meetingTab) {
+                console.error('No active meeting tab found');
+                this.sendError('No active meeting tab found');
+                return;
+            }
+
+            // Add to message queue
+            await messageQueue.add(text, platform || this.detectPlatform(meetingTab.url), meetingTab.id);
+            
+            // Confirm message was queued
+            this.send({
+                action: 'message_sent',
+                message_id: Date.now().toString(),
+                success: true
+            });
+        } catch (error) {
+            console.error('Failed to post message:', error);
+            this.sendError(error.message);
+        }
+    }
+
+    detectPlatform(url) {
+        if (url.includes('meet.google.com')) return 'google-meet';
+        if (url.includes('zoom.us')) return 'zoom';
+        if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'microsoft-teams';
+        return null;
+    }
+
+    send(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        } else {
+            console.warn('WebSocket not connected, cannot send:', data);
+        }
+    }
+
+    sendPong() {
+        this.send({ action: 'pong' });
+    }
+
+    sendError(error) {
+        this.send({ action: 'error', error });
+    }
+
+    async sendStatus() {
+        // Check for active meeting tabs
+        const tabs = await chrome.tabs.query({});
+        const meetingTab = tabs.find(tab => 
+            tab.url && (
+                tab.url.includes('meet.google.com') ||
+                tab.url.includes('zoom.us') ||
+                tab.url.includes('teams.microsoft.com') ||
+                tab.url.includes('teams.live.com')
+            )
+        );
+
+        this.send({
+            action: 'status',
+            platform: meetingTab ? this.detectPlatform(meetingTab.url) : null,
+            meeting_active: !!meetingTab,
+            queue_length: messageQueue.getStatus().queueLength
+        });
+    }
+
+    disconnect() {
+        this.shouldReconnect = false;
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+    }
+
+    getStatus() {
+        return {
+            connected: this.ws && this.ws.readyState === WebSocket.OPEN,
+            connectionId: this.connectionId,
+            reconnectAttempts: this.reconnectAttempts
+        };
+    }
+}
+
+// ============================================================================
+// Message Queue (existing implementation)
+// ============================================================================
+
 class MessageQueue {
     constructor() {
         this.queue = [];
@@ -77,7 +292,16 @@ class MessageQueue {
     }
 }
 
+// ============================================================================
+// Initialize Instances
+// ============================================================================
+
 const messageQueue = new MessageQueue();
+const wsManager = new WebSocketManager(BACKEND_WS_URL);
+
+// ============================================================================
+// Extension Lifecycle
+// ============================================================================
 
 // Extension installation handler
 chrome.runtime.onInstalled.addListener((details) => {
@@ -89,7 +313,17 @@ chrome.runtime.onInstalled.addListener((details) => {
             version: chrome.runtime.getManifest().version
         });
     }
+    
+    // Connect to backend WebSocket
+    wsManager.connect();
 });
+
+// Service worker startup - connect to WebSocket
+wsManager.connect();
+
+// ============================================================================
+// Message Handlers
+// ============================================================================
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -120,7 +354,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === 'getQueueStatus') {
-        sendResponse(messageQueue.getStatus());
+        sendResponse({
+            ...messageQueue.getStatus(),
+            websocket: wsManager.getStatus()
+        });
+        return true;
+    }
+    
+    if (request.action === 'getWebSocketStatus') {
+        sendResponse(wsManager.getStatus());
+        return true;
+    }
+    
+    if (request.action === 'reconnectWebSocket') {
+        wsManager.shouldReconnect = true;
+        wsManager.reconnectAttempts = 0;
+        wsManager.connect();
+        sendResponse({ success: true });
         return true;
     }
 });
@@ -155,7 +405,11 @@ chrome.runtime.onMessageExternal.addListener((request, sender, sendResponse) => 
     }
 
     if (request.action === 'ping') {
-        sendResponse({ success: true, message: 'Extension is active' });
+        sendResponse({ 
+            success: true, 
+            message: 'Extension is active',
+            websocket: wsManager.getStatus()
+        });
         return true;
     }
 });
@@ -164,5 +418,12 @@ chrome.runtime.onMessageExternal.addListener((request, sender, sendResponse) => 
 chrome.action.onClicked.addListener((tab) => {
     // Could open popup or perform action
 });
+
+// Periodically send status updates to backend
+setInterval(() => {
+    if (wsManager.ws && wsManager.ws.readyState === WebSocket.OPEN) {
+        wsManager.sendStatus();
+    }
+}, 30000); // Every 30 seconds
 
 console.log('str8_2task background service worker initialized');

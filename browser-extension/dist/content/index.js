@@ -584,10 +584,10 @@
   if (currentPlatform) {
     console.log(`Detected platform: ${currentPlatform}`);
   }
-  window.meetilyDebug = {
+  window.str8_2taskDebug = {
     detectPlatform,
     postMessage: postMessage4
   };
-  document.body.setAttribute("data-meetily-installed", "true");
+  document.body.setAttribute("data-str8_2task-installed", "true");
 })();
 //# sourceMappingURL=index.js.map

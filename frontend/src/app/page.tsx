@@ -1755,21 +1755,95 @@ export default function Home() {
     loadLanguagePreference();
   }, []);
 
+  // Global escape key handler to close all modals
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        console.log('🔓 Escape pressed - closing all modals');
+        setShowErrorAlert(false);
+        setShowChunkDropWarning(false);
+        setShowDeviceSettings(false);
+        setShowLanguageSettings(false);
+        setShowModelSelector(false);
+        setShowModelSettings(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, []);
+
+  // Debug: Log modal states
+  useEffect(() => {
+    if (showErrorAlert || showChunkDropWarning || showDeviceSettings || showLanguageSettings || showModelSelector || showModelSettings) {
+      console.log('🔍 Modal states:', {
+        showErrorAlert,
+        showChunkDropWarning,
+        showDeviceSettings,
+        showLanguageSettings,
+        showModelSelector,
+        showModelSettings
+      });
+    }
+  }, [showErrorAlert, showChunkDropWarning, showDeviceSettings, showLanguageSettings, showModelSelector, showModelSettings]);
+
+  // Global click handler for debugging
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Only log if clicking on a button or interactive element
+      if (target.tagName === 'BUTTON' || target.closest('button') || target.onclick) {
+        console.log('🖱️ Global click detected on:', {
+          tag: target.tagName,
+          className: target.className,
+          id: target.id,
+          text: target.textContent?.slice(0, 50),
+          hasOnClick: !!target.onclick,
+          isDisabled: (target as HTMLButtonElement).disabled,
+          pointerEvents: window.getComputedStyle(target).pointerEvents,
+          zIndex: window.getComputedStyle(target).zIndex
+        });
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick, true); // Use capture phase
+    return () => document.removeEventListener('click', handleGlobalClick, true);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className="flex flex-col h-screen bg-gray-50"
+      onClick={(e) => {
+        // Debug: Log all clicks to see if they're being received
+        if (e.target === e.currentTarget) {
+          console.log('🖱️ Click detected on root container');
+        }
+      }}
     >
       {showErrorAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              console.log('🖱️ Clicked error alert backdrop - closing');
+              setShowErrorAlert(false);
+            }
+          }}
+        >
           <Alert className="max-w-md mx-4 border-red-200 bg-white shadow-xl">
             <AlertTitle className="text-red-800">Recording Stopped</AlertTitle>
             <AlertDescription className="text-red-700">
               {errorMessage}
               <button
-                onClick={() => setShowErrorAlert(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🖱️ Dismiss button clicked');
+                  setShowErrorAlert(false);
+                }}
                 className="ml-2 text-red-600 hover:text-red-800 underline"
               >
                 Dismiss
@@ -1779,13 +1853,26 @@ export default function Home() {
         </div>
       )}
       {showChunkDropWarning && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              console.log('🖱️ Clicked chunk drop warning backdrop - closing');
+              setShowChunkDropWarning(false);
+            }
+          }}
+        >
           <Alert className="max-w-lg mx-4 border-yellow-200 bg-white shadow-xl">
             <AlertTitle className="text-yellow-800">Transcription Performance Warning</AlertTitle>
             <AlertDescription className="text-yellow-700">
               {chunkDropMessage}
               <button
-                onClick={() => setShowChunkDropWarning(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🖱️ Dismiss button clicked');
+                  setShowChunkDropWarning(false);
+                }}
                 className="ml-2 text-yellow-600 hover:text-yellow-800 underline"
               >
                 Dismiss
@@ -1804,17 +1891,17 @@ export default function Home() {
                 <div className="flex justify-center  items-center space-x-2">
                   <ButtonGroup>
                   {transcripts?.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('📋 Copy button clicked!');
-                        handleCopyTranscript();
-                      }}
-                      title="Copy Transcript"
-                    >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📋 Copy button clicked!', { event: e, target: e.target });
+                      handleCopyTranscript();
+                    }}
+                    title="Copy Transcript"
+                  >
                       <Copy />
                       <span className='hidden md:inline'>
                         Copy
@@ -1828,7 +1915,7 @@ export default function Home() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('⚙️ Model Settings button clicked!');
+                        console.log('⚙️ Model Settings button clicked!', { event: e, target: e.target });
                         setShowModelSelector(true);
                       }}
                       title="Transcription Model Settings"
@@ -1842,7 +1929,12 @@ export default function Home() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowDeviceSettings(true)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🎤 Device Settings button clicked!', { event: e, target: e.target });
+                      setShowDeviceSettings(true);
+                    }}
                     title="Input/Output devices selection"
                   >
                     <MicrophoneIcon />
@@ -1853,7 +1945,12 @@ export default function Home() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowLanguageSettings(true)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🌐 Language Settings button clicked!', { event: e, target: e.target });
+                      setShowLanguageSettings(true);
+                    }}
                     title="Language"
                   >
                     <GlobeIcon />
@@ -2196,7 +2293,15 @@ export default function Home() {
 
           {/* Device Settings Modal */}
           {showDeviceSettings && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  console.log('🖱️ Clicked device settings backdrop - closing');
+                  setShowDeviceSettings(false);
+                }
+              }}
+            >
               <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">Audio Device Settings</h3>
@@ -2237,7 +2342,15 @@ export default function Home() {
 
           {/* Language Settings Modal */}
           {showLanguageSettings && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  console.log('🖱️ Clicked language settings backdrop - closing');
+                  setShowLanguageSettings(false);
+                }
+              }}
+            >
               <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">Language Settings</h3>
@@ -2272,7 +2385,16 @@ export default function Home() {
 
           {/* Model Selection Modal - shown when model loading fails */}
           {showModelSelector && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  console.log('🖱️ Clicked model selector backdrop - closing');
+                  setShowModelSelector(false);
+                  setModelSelectorMessage('');
+                }
+              }}
+            >
               <div className="bg-white rounded-lg max-w-4xl w-full mx-4 shadow-xl max-h-[90vh] flex flex-col">
                 {/* Fixed Header */}
                 <div className="flex justify-between items-center p-6 pb-4 border-b border-gray-200">

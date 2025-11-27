@@ -2,7 +2,10 @@ use crate::api::{MeetingDetails, MeetingTranscript};
 use crate::database::models::{MeetingModel, Transcript};
 use chrono::Utc;
 use sqlx::{Connection, Error as SqlxError, SqliteConnection, SqlitePool};
-use tracing::{error, info};
+use tracing::{error, info, warn};
+use std::path::PathBuf;
+use std::fs;
+use serde_json::Value;
 
 pub struct MeetingsRepository;
 
@@ -73,7 +76,7 @@ impl MeetingsRepository {
         }
 
         if let Some(meeting) = meeting {
-            // Get all transcripts for this meeting
+            // Get all transcripts for this meeting from the database
             let transcripts =
                 sqlx::query_as::<_, Transcript>("SELECT * FROM transcripts WHERE meeting_id = ?")
                     .bind(meeting_id)
@@ -82,8 +85,8 @@ impl MeetingsRepository {
 
             transaction.commit().await?;
 
-            // Convert Transcript to MeetingTranscript
-            let meeting_transcripts = transcripts
+            // First, convert any DB transcripts to MeetingTranscript
+            let mut meeting_transcripts: Vec<MeetingTranscript> = transcripts
                 .into_iter()
                 .map(|t| MeetingTranscript {
                     id: t.id,
@@ -94,6 +97,71 @@ impl MeetingsRepository {
                     duration: t.duration,
                 })
                 .collect::<Vec<_>>();
+
+            // SIMPLE FALLBACK:
+            // If there are no transcripts stored in the database yet but we have a
+            // recording folder with transcripts.json, try to load segments directly
+            // from that file so the frontend can still display the transcript.
+            if meeting_transcripts.is_empty() {
+                if let Some(folder_path) = &meeting.folder_path {
+                    let path = PathBuf::from(folder_path).join("transcripts.json");
+                    if path.exists() {
+                        match fs::read_to_string(&path) {
+                            Ok(contents) => {
+                                match serde_json::from_str::<Value>(&contents) {
+                                    Ok(json) => {
+                                        if let Some(segments) = json.get("segments").and_then(|v| v.as_array()) {
+                                            for seg in segments {
+                                                // Map recording_saver::TranscriptSegment JSON into MeetingTranscript
+                                                if let Ok(s) = serde_json::from_value::<crate::audio::recording_saver::TranscriptSegment>(seg.clone()) {
+                                                    meeting_transcripts.push(MeetingTranscript {
+                                                        id: s.id.clone(),
+                                                        text: s.text.clone(),
+                                                        // Use the human-friendly display time as timestamp for now
+                                                        timestamp: s.display_time.clone(),
+                                                        audio_start_time: Some(s.audio_start_time),
+                                                        audio_end_time: Some(s.audio_end_time),
+                                                        duration: Some(s.duration),
+                                                    });
+                                                }
+                                            }
+
+                                            if !meeting_transcripts.is_empty() {
+                                                info!(
+                                                    "Loaded {} transcript segments from transcripts.json for meeting {}",
+                                                    meeting_transcripts.len(),
+                                                    meeting_id
+                                                );
+                                            }
+                                        } else {
+                                            warn!(
+                                                "transcripts.json for meeting {} does not contain a 'segments' array",
+                                                meeting_id
+                                            );
+                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            "Failed to parse transcripts.json for meeting {} at {}: {}",
+                                            meeting_id,
+                                            path.display(),
+                                            e
+                                        );
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Failed to read transcripts.json for meeting {} at {}: {}",
+                                    meeting_id,
+                                    path.display(),
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+            }
 
             Ok(Some(MeetingDetails {
                 id: meeting.id,

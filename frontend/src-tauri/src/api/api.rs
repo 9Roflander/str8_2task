@@ -1340,3 +1340,90 @@ pub async fn open_external_url(url: String) -> Result<(), String> {
         Err(e) => Err(format!("Failed to open URL: {}", e)),
     }
 }
+
+// ============================================================================
+// Browser Extension Integration Commands
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SendToChatRequest {
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SendQuestionsToChatRequest {
+    pub questions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delay_between: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GenerateQuestionsRequest {
+    pub meeting_id: String,
+    pub model: String,
+    pub model_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_key: Option<String>,
+}
+
+/// Get the current status of connected browser extensions
+#[tauri::command]
+pub async fn api_get_extension_status<R: Runtime>(
+    app: AppHandle<R>,
+    _auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_extension_status called");
+    make_api_request::<R, serde_json::Value>(&app, "/extension/status", "GET", None, None, None).await
+}
+
+/// Send a message to the meeting chat via browser extension
+#[tauri::command]
+pub async fn api_send_to_chat<R: Runtime>(
+    app: AppHandle<R>,
+    request: SendToChatRequest,
+    _auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_send_to_chat called with message length: {}", request.message.len());
+    let body = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+    make_api_request::<R, serde_json::Value>(&app, "/extension/send-to-chat", "POST", Some(&body), None, None).await
+}
+
+/// Send multiple clarifying questions to the meeting chat
+#[tauri::command]
+pub async fn api_send_questions_to_chat<R: Runtime>(
+    app: AppHandle<R>,
+    request: SendQuestionsToChatRequest,
+    _auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_send_questions_to_chat called with {} questions", request.questions.len());
+    let body = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+    make_api_request::<R, serde_json::Value>(&app, "/extension/send-questions", "POST", Some(&body), None, None).await
+}
+
+/// Generate clarifying questions about tasks from meeting transcript
+#[tauri::command]
+pub async fn api_generate_clarifying_questions<R: Runtime>(
+    app: AppHandle<R>,
+    request: GenerateQuestionsRequest,
+    _auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_generate_clarifying_questions called for meeting: {}", request.meeting_id);
+    let body = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+    make_api_request::<R, serde_json::Value>(&app, "/extension/generate-questions", "POST", Some(&body), None, None).await
+}
+
+/// Ping all connected browser extensions to check health
+#[tauri::command]
+pub async fn api_ping_extensions<R: Runtime>(
+    app: AppHandle<R>,
+    _auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_ping_extensions called");
+    make_api_request::<R, serde_json::Value>(&app, "/extension/ping", "POST", None, None, None).await
+}

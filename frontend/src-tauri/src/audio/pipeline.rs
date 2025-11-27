@@ -10,6 +10,7 @@ use rubato::{Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolat
 
 use super::devices::AudioDevice;
 use super::recording_state::{AudioChunk, AudioError, RecordingState, DeviceType};
+use super::telemetry::{AudioTelemetryEvent, emit_telemetry_event};
 use super::audio_processing::{audio_to_mono, LoudnessNormalizer, NoiseSuppressionProcessor, HighPassFilter};
 use super::vad::{ContinuousVadProcessor};
 
@@ -24,19 +25,29 @@ struct AudioMixerRingBuffer {
 
 impl AudioMixerRingBuffer {
     fn new(sample_rate: u32) -> Self {
-        // Use 50ms windows for mixing
-        let window_ms = 600.0;
+        const MIX_WINDOW_MS: f32 = 50.0;
+        const MAX_BUFFER_MULTIPLIER: usize = 8;
+
+        // Keep the tight 50 ms window we promise in the UI so captions stay reactive
+        let window_ms = MIX_WINDOW_MS;
         let window_size_samples = (sample_rate as f32 * window_ms / 1000.0) as usize;
 
         // CRITICAL FIX: Increase max buffer to 400ms for system audio stability
         // System audio (especially Core Audio on macOS) can have significant jitter
         // due to sample-by-sample streaming → batching → channel transmission
         // Accounts for: RNNoise buffering + Core Audio jitter + processing delays
-        let max_buffer_size = window_size_samples * 8;  // 400ms (was 200ms)
+        let max_buffer_size = window_size_samples * MAX_BUFFER_MULTIPLIER;  // 400ms safety net
+
+        let max_buffer_ms = window_ms * MAX_BUFFER_MULTIPLIER as f32;
 
         info!("🔊 Ring buffer initialized: window={}ms ({} samples), max={}ms ({} samples)",
               window_ms, window_size_samples,
-              window_ms * 8.0, max_buffer_size);
+              max_buffer_ms, max_buffer_size);
+
+        emit_telemetry_event(AudioTelemetryEvent::LatencyWindowConfigured {
+            window_ms,
+            max_buffer_ms,
+        });
 
         Self {
             mic_buffer: VecDeque::with_capacity(max_buffer_size),
@@ -65,14 +76,28 @@ impl AudioMixerRingBuffer {
         // CRITICAL FIX: Add warnings before dropping samples
         // This helps diagnose timing issues in production
         if self.mic_buffer.len() > self.max_buffer_size {
+            let overflow = self.mic_buffer.len();
             warn!("⚠️ Microphone buffer overflow: {} > {} samples, dropping oldest {} samples",
-                  self.mic_buffer.len(), self.max_buffer_size,
-                  self.mic_buffer.len() - self.max_buffer_size);
+                  overflow, self.max_buffer_size,
+                  overflow - self.max_buffer_size);
+
+            emit_telemetry_event(AudioTelemetryEvent::BufferOverflow {
+                device: DeviceType::Microphone,
+                current_samples: overflow,
+                max_samples: self.max_buffer_size,
+            });
         }
         if self.system_buffer.len() > self.max_buffer_size {
+            let overflow = self.system_buffer.len();
             error!("🔴 SYSTEM AUDIO BUFFER OVERFLOW: {} > {} samples, dropping {} samples - THIS CAUSES DISTORTION!",
-                  self.system_buffer.len(), self.max_buffer_size,
-                  self.system_buffer.len() - self.max_buffer_size);
+                  overflow, self.max_buffer_size,
+                  overflow - self.max_buffer_size);
+
+            emit_telemetry_event(AudioTelemetryEvent::BufferOverflow {
+                device: DeviceType::System,
+                current_samples: overflow,
+                max_samples: self.max_buffer_size,
+            });
         }
 
         // Safety: prevent buffer overflow (keep only last 200ms)
@@ -822,6 +847,31 @@ impl AudioPipeline {
                     // STEP 2: Mix audio in fixed windows when both streams have sufficient data
                     while self.ring_buffer.can_mix() {
                         if let Some((mic_window, sys_window)) = self.ring_buffer.extract_window() {
+                            // DIAGNOSTIC: Check if system audio is silent (permission issue?)
+                            let sys_rms = if !sys_window.is_empty() {
+                                (sys_window.iter().map(|&x| x * x).sum::<f32>() / sys_window.len() as f32).sqrt()
+                            } else {
+                                0.0
+                            };
+                            let mic_rms = if !mic_window.is_empty() {
+                                (mic_window.iter().map(|&x| x * x).sum::<f32>() / mic_window.len() as f32).sqrt()
+                            } else {
+                                0.0
+                            };
+                            
+                            // Log every 100 windows to detect silent system audio
+                            static WINDOW_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                            let window_count = WINDOW_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            if window_count % 100 == 0 {
+                                // NOTE:
+                                // In some backends (e.g. CoreAudio tap with mixed routing),
+                                // the system window used here may not fully reflect what ends
+                                // up in the final mixed output. This log is now purely
+                                // diagnostic and no longer asserts that system audio is
+                                // definitively silent to avoid confusing false positives.
+                                info!("🔊 Audio levels (diagnostic) - Mic RMS: {:.4}, System RMS: {:.4}", mic_rms, sys_rms);
+                            }
+                            
                             // Simple mixing without aggressive ducking
                             let mixed_clean = self.mixer.mix_window(&mic_window, &sys_window);
 

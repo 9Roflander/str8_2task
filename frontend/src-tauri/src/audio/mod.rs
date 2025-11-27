@@ -13,6 +13,7 @@ pub mod permissions;
 pub mod device_detection;
 pub mod diagnostics;
 pub mod ffmpeg_mixer;  // NEW: FFmpeg-style adaptive audio mixer
+pub mod telemetry;
 
 // New simplified audio system
 pub mod recording_state;
@@ -97,6 +98,9 @@ pub use diagnostics::{
 
 // Export FFmpeg mixer
 pub use ffmpeg_mixer::{FFmpegAudioMixer, BufferStats, RNNOISE_APPLY_ENABLED};
+
+// Export telemetry helpers
+pub use telemetry::{AudioTelemetryEvent, emit_telemetry_event};
 
 pub use vad::{extract_speech_16k};
 
