@@ -75,10 +75,10 @@ if (currentPlatform) {
 }
 
 // Debug helper
-window.meetilyDebug = {
+window.str8_2taskDebug = {
     detectPlatform,
     postMessage
 };
 
 // Mark that extension is installed
-document.body.setAttribute('data-meetily-installed', 'true');
+document.body.setAttribute('data-str8_2task-installed', 'true');

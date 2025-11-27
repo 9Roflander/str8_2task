@@ -31,9 +31,9 @@
 //! # Custom Templates
 //!
 //! Users can add custom templates to:
-//! - macOS: `~/Library/Application Support/Meetily/templates/`
-//! - Windows: `%APPDATA%\Meetily\templates\`
-//! - Linux: `~/.config/Meetily/templates/`
+//! - macOS: `~/Library/Application Support/str8_2task/templates/`
+//! - Windows: `%APPDATA%\str8_2task\templates\`
+//! - Linux: `~/.config/str8_2task/templates/`
 //!
 //! Custom templates must follow the JSON schema defined in `types::Template`.
 

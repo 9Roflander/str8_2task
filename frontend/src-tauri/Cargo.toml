@@ -1,5 +1,5 @@
 [package]
-name = "meetily"
+name = "str8_2task"
 version = "0.1.1"
 description = "A Tauri App for meeting minutes"
 authors = ["Sujith S"]

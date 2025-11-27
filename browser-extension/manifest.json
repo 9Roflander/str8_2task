@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Meetily - Meeting Message Assistant",
+  "name": "str8_2task - Meeting Message Assistant",
   "version": "1.0.0",
   "description": "Post messages from your account in Google Meet, Zoom, and Microsoft Teams meetings",
   "permissions": [

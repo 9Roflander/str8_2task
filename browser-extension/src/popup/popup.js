@@ -1,4 +1,4 @@
-// Popup script for Meetily extension
+// Popup script for str8_2task extension
 
 let currentPlatform = null;
 

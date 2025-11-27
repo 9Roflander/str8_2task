@@ -1,5 +1,5 @@
 @echo off
-REM Meetily GPU-Accelerated Development Script for Windows
+REM str8_2task GPU-Accelerated Development Script for Windows
 REM Automatically detects and runs in development mode with optimal GPU features
 
 setlocal enabledelayedexpansion
@@ -21,7 +21,7 @@ if "%~1" == "help" (
 
 echo.
 echo ========================================
-echo   Meetily GPU-Accelerated Dev Mode
+echo   str8_2task GPU-Accelerated Dev Mode
 echo ========================================
 echo.
 
@@ -77,7 +77,7 @@ set "RUST_ENV_LIB=%LIB%"
 set "RUST_ENV_INCLUDE=%INCLUDE%"
 
 echo.
-echo 🚀 Starting Meetily in development mode...
+echo 🚀 Starting str8_2task in development mode...
 echo.
 
 REM Find package.json location
@@ -137,7 +137,7 @@ exit /b 0
 :_print_help
 echo.
 echo ========================================
-echo   Meetily GPU Dev Script - Help
+echo   str8_2task GPU Dev Script - Help
 echo ========================================
 echo.
 echo USAGE:
@@ -151,7 +151,7 @@ echo   /?        Show this help message
 echo.
 echo DESCRIPTION:
 echo   This script automatically detects your GPU and runs
-echo   Meetily in development mode with optimal hardware
+echo   str8_2task in development mode with optimal hardware
 echo   acceleration features:
 echo.
 echo   - NVIDIA GPU    : Runs with CUDA acceleration

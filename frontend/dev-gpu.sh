@@ -1,5 +1,5 @@
 #!/bin/bash
-# GPU-accelerated development script for Meetily
+# GPU-accelerated development script for str8_2task
 # Automatically detects and runs in development mode with optimal GPU features
 
 set -e
@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Meetily GPU-Accelerated Development Mode${NC}"
+echo -e "${BLUE}🚀 str8_2task GPU-Accelerated Development Mode${NC}"
 echo ""
 
 # Detect OS
@@ -43,7 +43,7 @@ else
 fi
 
 echo ""
-echo -e "${BLUE}📦 Starting Meetily in development mode...${NC}"
+echo -e "${BLUE}📦 Starting str8_2task in development mode...${NC}"
 echo ""
 
 # Check for pnpm or npm

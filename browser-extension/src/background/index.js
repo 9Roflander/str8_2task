@@ -81,7 +81,7 @@ const messageQueue = new MessageQueue();
 
 // Extension installation handler
 chrome.runtime.onInstalled.addListener((details) => {
-    console.log('Meetily extension installed:', details.reason);
+    console.log('str8_2task extension installed:', details.reason);
 
     if (details.reason === 'install') {
         chrome.storage.local.set({
@@ -125,7 +125,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-// Handle external messages from Meetily app (Phase 2)
+// Handle external messages from str8_2task app (Phase 2)
 chrome.runtime.onMessageExternal.addListener((request, sender, sendResponse) => {
     console.log('Background received external message from:', sender.url);
     console.log('Request:', request);
@@ -165,4 +165,4 @@ chrome.action.onClicked.addListener((tab) => {
     // Could open popup or perform action
 });
 
-console.log('Meetily background service worker initialized');
+console.log('str8_2task background service worker initialized');

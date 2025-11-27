@@ -1,6 +1,6 @@
 /**
  * Mock LLM API for testing message generation
- * This simulates what the real Meetily app will provide
+ * This simulates what the real str8_2task app will provide
  */
 
 const testMessages = {
@@ -43,12 +43,12 @@ export async function generateTestMessage(type = 'acknowledgment') {
 }
 
 /**
- * This will be replaced with real API call to Meetily app in Phase 2
+ * This will be replaced with real API call to str8_2task app in Phase 2
  * @param {Object} context - Meeting context for LLM
  * @returns {Promise<string>} Generated message
  */
 export async function generateLLMMessage(context) {
-    // TODO: In Phase 2, this will call the Meetily app API
+    // TODO: In Phase 2, this will call the str8_2task app API
     // For now, use test message generation
     return generateTestMessage(context.type || 'acknowledgment');
 }

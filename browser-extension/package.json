@@ -1,5 +1,5 @@
 {
-    "name": "meetily-extension",
+    "name": "str8_2task-extension",
     "version": "1.0.0",
     "description": "Browser extension for posting LLM-generated messages in Google Meet, Zoom, and Microsoft Teams",
     "scripts": {
@@ -17,6 +17,6 @@
         "ai",
         "llm"
     ],
-    "author": "Meetily",
+    "author": "str8_2task",
     "license": "MIT"
 }

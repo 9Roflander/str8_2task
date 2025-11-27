@@ -1,5 +1,5 @@
 #!/bin/bash
-# GPU-accelerated build script for Meetily
+# GPU-accelerated build script for str8_2task
 # Automatically detects and builds with optimal GPU features
 
 set -e
@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Meetily GPU-Accelerated Build Script${NC}"
+echo -e "${BLUE}🚀 str8_2task GPU-Accelerated Build Script${NC}"
 echo ""
 
 # Detect OS
@@ -45,7 +45,7 @@ else
 fi
 
 echo ""
-echo -e "${BLUE}📦 Building Meetily...${NC}"
+echo -e "${BLUE}📦 Building str8_2task...${NC}"
 echo ""
 
 # Check for pnpm or npm
