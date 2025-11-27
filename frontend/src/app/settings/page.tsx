@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Settings2, Mic, Database as DatabaseIcon, SparkleIcon } from 'lucide-react';
+import { ArrowLeft, Settings2, Mic, Database as DatabaseIcon, SparkleIcon, Link } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { invoke } from '@tauri-apps/api/core';
 import { TranscriptSettings, TranscriptModelProps } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
 import { PreferenceSettings } from '@/components/PreferenceSettings';
 import { SummaryModelSettings } from '@/components/SummaryModelSettings';
+import { JiraSettings } from '@/components/JiraSettings';
 
-type SettingsTab = 'general' | 'recording' | 'Transcriptionmodels' | 'summaryModels';
+type SettingsTab = 'general' | 'recording' | 'Transcriptionmodels' | 'summaryModels' | 'jira';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -24,7 +25,8 @@ export default function SettingsPage() {
     { id: 'general' as const, label: 'General', icon: <Settings2 className="w-4 h-4" /> },
     { id: 'recording' as const, label: 'Recordings', icon: <Mic className="w-4 h-4" /> },
     { id: 'Transcriptionmodels' as const, label: 'Transcription', icon: <DatabaseIcon className="w-4 h-4" /> },
-    { id: 'summaryModels' as const, label: 'Summary', icon: <SparkleIcon className="w-4 h-4" /> }
+    { id: 'summaryModels' as const, label: 'Summary', icon: <SparkleIcon className="w-4 h-4" /> },
+    { id: 'jira' as const, label: 'Jira Integration', icon: <Link className="w-4 h-4" /> }
   ];
 
   // Load saved transcript configuration on mount
@@ -91,8 +93,8 @@ export default function SettingsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
-                      ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
                   {tab.icon}
@@ -109,10 +111,11 @@ export default function SettingsPage() {
                 <TranscriptSettings
                   transcriptModelConfig={transcriptModelConfig}
                   setTranscriptModelConfig={setTranscriptModelConfig}
-                  // onSave={handleSaveConfig}
+                // onSave={handleSaveConfig}
                 />
               )}
               {activeTab === 'summaryModels' && <SummaryModelSettings />}
+              {activeTab === 'jira' && <JiraSettings />}
             </div>
           </div>
         </div>

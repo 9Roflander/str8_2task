@@ -50,7 +50,7 @@ function MeetingDetailsContent() {
       const currentConfig = await invoke('api_get_model_config') as any;
 
       // ✅ STEP 2: If DB already has a model, use it (never override!)
-      if (currentConfig && currentConfig.model) {
+      if (currentConfig && currentConfig !== null && currentConfig.model && currentConfig.model.trim() !== '') {
         console.log('✅ Using existing model from DB:', currentConfig.model);
         setShouldAutoGenerate(true);
         setHasCheckedAutoGen(true);

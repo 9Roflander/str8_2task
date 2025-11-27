@@ -436,7 +436,10 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔴 Start recording button clicked!', { isStarting, isProcessing, isRecordingDisabled, isValidatingModel });
                             Analytics.trackButtonClick('start_recording', 'recording_controls');
                             handleStartRecording();
                           }}
@@ -444,6 +447,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                           className={`w-12 h-12 flex items-center justify-center ${
                             isStarting || isProcessing || isValidatingModel ? 'bg-gray-400' : 'bg-red-500 hover:bg-red-600'
                           } rounded-full text-white transition-colors relative`}
+                          style={{ pointerEvents: (isStarting || isProcessing || isRecordingDisabled || isValidatingModel) ? 'none' : 'auto' }}
                         >
                           {isValidatingModel ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

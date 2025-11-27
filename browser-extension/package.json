@@ -1,0 +1,22 @@
+{
+    "name": "meetily-extension",
+    "version": "1.0.0",
+    "description": "Browser extension for posting LLM-generated messages in Google Meet, Zoom, and Microsoft Teams",
+    "scripts": {
+        "build": "node build.js",
+        "watch": "node build.js --watch",
+        "test": "playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.40.0",
+        "esbuild": "^0.19.0"
+    },
+    "keywords": [
+        "chrome-extension",
+        "meeting",
+        "ai",
+        "llm"
+    ],
+    "author": "Meetily",
+    "license": "MIT"
+}

@@ -32,6 +32,27 @@ pub struct MessageContent {
     pub content: String,
 }
 
+// Gemini response structures
+#[derive(Deserialize, Debug)]
+pub struct GeminiResponse {
+    pub candidates: Vec<GeminiCandidate>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GeminiCandidate {
+    pub content: GeminiContent,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GeminiContent {
+    pub parts: Vec<GeminiPart>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GeminiPart {
+    pub text: Option<String>,
+}
+
 // Claude-specific request structure
 #[derive(Debug, Serialize)]
 pub struct ClaudeRequest {
@@ -60,6 +81,7 @@ pub enum LLMProvider {
     Groq,
     Ollama,
     OpenRouter,
+    Gemini,
 }
 
 impl LLMProvider {
@@ -71,6 +93,7 @@ impl LLMProvider {
             "groq" => Ok(Self::Groq),
             "ollama" => Ok(Self::Ollama),
             "openrouter" => Ok(Self::OpenRouter),
+            "gemini" => Ok(Self::Gemini),
             _ => Err(format!("Unsupported LLM provider: {}", s)),
         }
     }
@@ -98,18 +121,38 @@ pub async fn generate_summary(
     user_prompt: &str,
     ollama_endpoint: Option<&str>,
 ) -> Result<String, String> {
-    let (api_url, mut headers) = match provider {
+    let openai_style_body = serde_json::json!(ChatRequest {
+        model: model_name.to_string(),
+        messages: vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: system_prompt.to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: user_prompt.to_string(),
+            }
+        ],
+    });
+
+    let (api_url, mut headers, request_body, uses_bearer_auth) = match provider {
         LLMProvider::OpenAI => (
             "https://api.openai.com/v1/chat/completions".to_string(),
             header::HeaderMap::new(),
+            openai_style_body.clone(),
+            true,
         ),
         LLMProvider::Groq => (
             "https://api.groq.com/openai/v1/chat/completions".to_string(),
             header::HeaderMap::new(),
+            openai_style_body.clone(),
+            true,
         ),
         LLMProvider::OpenRouter => (
             "https://openrouter.ai/api/v1/chat/completions".to_string(),
             header::HeaderMap::new(),
+            openai_style_body.clone(),
+            true,
         ),
         LLMProvider::Ollama => {
             let host = ollama_endpoint
@@ -118,6 +161,8 @@ pub async fn generate_summary(
             (
                 format!("{}/v1/chat/completions", host),
                 header::HeaderMap::new(),
+                openai_style_body.clone(),
+                true,
             )
         }
         LLMProvider::Claude => {
@@ -134,12 +179,45 @@ pub async fn generate_summary(
                     .parse()
                     .map_err(|_| "Invalid anthropic version".to_string())?,
             );
-            ("https://api.anthropic.com/v1/messages".to_string(), header_map)
+            (
+                "https://api.anthropic.com/v1/messages".to_string(),
+                header_map,
+                serde_json::json!(ClaudeRequest {
+                    system: system_prompt.to_string(),
+                    model: model_name.to_string(),
+                    max_tokens: 2048,
+                    messages: vec![ChatMessage {
+                        role: "user".to_string(),
+                        content: user_prompt.to_string(),
+                    }]
+                }),
+                false,
+            )
         }
+        LLMProvider::Gemini => (
+            format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+                model_name, api_key
+            ),
+            header::HeaderMap::new(),
+            serde_json::json!({
+                "system_instruction": {
+                    "parts": [{
+                        "text": system_prompt
+                    }]
+                },
+                "contents": [{
+                    "role": "user",
+                    "parts": [{
+                        "text": user_prompt
+                    }]
+                }]
+            }),
+            false,
+        ),
     };
 
-    // Add authorization header for non-Claude providers
-    if provider != &LLMProvider::Claude {
+    if uses_bearer_auth {
         headers.insert(
             header::AUTHORIZATION,
             format!("Bearer {}", api_key)
@@ -154,43 +232,24 @@ pub async fn generate_summary(
             .map_err(|_| "Invalid content type".to_string())?,
     );
 
-    // Build request body based on provider
-    let request_body = if provider != &LLMProvider::Claude {
-        serde_json::json!(ChatRequest {
-            model: model_name.to_string(),
-            messages: vec![
-                ChatMessage {
-                    role: "system".to_string(),
-                    content: system_prompt.to_string(),
-                },
-                ChatMessage {
-                    role: "user".to_string(),
-                    content: user_prompt.to_string(),
-                }
-            ],
-        })
-    } else {
-        serde_json::json!(ClaudeRequest {
-            system: system_prompt.to_string(),
-            model: model_name.to_string(),
-            max_tokens: 2048,
-            messages: vec![ChatMessage {
-                role: "user".to_string(),
-                content: user_prompt.to_string(),
-            }]
-        })
-    };
+    info!("🐞 LLM Request to {}: model={}, url={}", provider_name(provider), model_name, api_url);
+    let request_start = std::time::Instant::now();
+    let api_url_clone = api_url.clone(); // Clone for error message
 
-    info!("🐞 LLM Request to {}: model={}", provider_name(provider), model_name);
-
-    // Send request
+    // Send request with timeout logging
     let response = client
-        .post(api_url)
+        .post(&api_url)
         .headers(headers)
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("Failed to send request to LLM: {}", e))?;
+        .map_err(|e| {
+            let elapsed = request_start.elapsed().as_secs();
+            format!("Failed to send request to LLM after {}s: {} (URL: {})", elapsed, e, api_url_clone)
+        })?;
+    
+    let request_elapsed = request_start.elapsed().as_secs();
+    info!("🐞 LLM Request sent, waiting for response (elapsed: {}s)...", request_elapsed);
 
     if !response.status().is_success() {
         let error_body = response
@@ -216,6 +275,43 @@ pub async fn generate_summary(
             .text
             .trim();
         Ok(content.to_string())
+    } else if provider == &LLMProvider::Gemini {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read Gemini response text: {}", e))?;
+        
+        info!("🐞 Gemini raw response length: {} chars", response_text.len());
+        info!("🐞 Gemini raw response preview: {}", &response_text.chars().take(500).collect::<String>());
+        
+        let gemini_response: GeminiResponse = serde_json::from_str(&response_text)
+            .map_err(|e| format!("Failed to parse Gemini response JSON: {}. Response preview: {}", e, &response_text.chars().take(200).collect::<String>()))?;
+
+        info!("🐞 LLM Response received from Gemini, candidates count: {}", gemini_response.candidates.len());
+
+        // Collect all text parts from all candidates
+        let mut all_text_parts = Vec::new();
+        for (idx, candidate) in gemini_response.candidates.iter().enumerate() {
+            info!("🐞 Processing candidate {} with {} parts", idx, candidate.content.parts.len());
+            for (part_idx, part) in candidate.content.parts.iter().enumerate() {
+                if let Some(text) = &part.text {
+                    info!("🐞 Candidate {} part {} text length: {}", idx, part_idx, text.len());
+                    all_text_parts.push(text.as_str());
+                } else {
+                    info!("🐞 Candidate {} part {} has no text", idx, part_idx);
+                }
+            }
+        }
+
+        if all_text_parts.is_empty() {
+            return Err("No text content found in any Gemini response parts".to_string());
+        }
+
+        let full_content = all_text_parts.join("");
+        info!("🐞 Gemini final content length: {} chars", full_content.len());
+        info!("🐞 Gemini final content preview: {}", &full_content.chars().take(500).collect::<String>());
+
+        Ok(full_content.trim().to_string())
     } else {
         let chat_response = response
             .json::<ChatResponse>()
@@ -243,5 +339,6 @@ fn provider_name(provider: &LLMProvider) -> &str {
         LLMProvider::Groq => "Groq",
         LLMProvider::Ollama => "Ollama",
         LLMProvider::OpenRouter => "OpenRouter",
+        LLMProvider::Gemini => "Gemini",
     }
 }

@@ -49,6 +49,36 @@ impl SummaryService {
             meeting_id
         );
 
+        // Update status to processing when background task actually starts
+        // But first check if this process has been cancelled (status is not PENDING)
+        let current_process = SummaryProcessesRepository::get_summary_data(&pool, &meeting_id).await;
+        match current_process {
+            Ok(Some(proc)) if proc.status != "PENDING" => {
+                warn!(
+                    "⚠️ Process for meeting_id {} is no longer PENDING (status: {}), cancelling background task",
+                    meeting_id, proc.status
+                );
+                return; // Exit early - this process was superseded
+            }
+            Ok(None) => {
+                warn!(
+                    "⚠️ Process entry not found for meeting_id {}, cancelling background task",
+                    meeting_id
+                );
+                return; // Exit early - process was deleted
+            }
+            _ => {} // Process is PENDING, continue
+        }
+        
+        if let Err(e) = SummaryProcessesRepository::update_process_processing(&pool, &meeting_id).await {
+            error!(
+                "⚠️ Failed to update status to processing for {}: {}",
+                meeting_id, e
+            );
+        } else {
+            info!("✓ Status updated to 'processing' for meeting_id: {}", meeting_id);
+        }
+
         // Parse provider
         let provider = match LLMProvider::from_str(&model_provider) {
             Ok(p) => p,
@@ -90,6 +120,34 @@ impl SummaryService {
             None
         };
 
+        // Verify Ollama connectivity if using Ollama
+        if provider == LLMProvider::Ollama {
+            let endpoint = ollama_endpoint.as_deref().unwrap_or("http://localhost:11434");
+            info!("🔍 Verifying Ollama connectivity at: {}", endpoint);
+            let test_client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new());
+            
+            match test_client.get(&format!("{}/api/tags", endpoint)).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    info!("✓ Ollama is reachable at {}", endpoint);
+                }
+                Ok(resp) => {
+                    let error_msg = format!("Ollama returned error status {} at {}", resp.status(), endpoint);
+                    error!("❌ {}", error_msg);
+                    Self::update_process_failed(&pool, &meeting_id, &error_msg).await;
+                    return;
+                }
+                Err(e) => {
+                    let error_msg = format!("Cannot connect to Ollama at {}: {}. Please ensure Ollama is running.", endpoint, e);
+                    error!("❌ {}", error_msg);
+                    Self::update_process_failed(&pool, &meeting_id, &error_msg).await;
+                    return;
+                }
+            }
+        }
+
         // Dynamically fetch context size for Ollama models
         let token_threshold = if provider == LLMProvider::Ollama {
             match METADATA_CACHE.get_or_fetch(&model_name, ollama_endpoint.as_deref()).await {
@@ -116,7 +174,27 @@ impl SummaryService {
         };
 
         // Generate summary
-        let client = reqwest::Client::new();
+        // Create HTTP client with extended timeout for long-running LLM requests
+        // 30 minutes timeout to match frontend polling timeout
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(1800)) // 30 minutes
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new()); // Fallback to default if builder fails
+        
+        let text_preview = if text.len() > 200 {
+            format!("{}...", &text[..200])
+        } else {
+            text.clone()
+        };
+        info!(
+            "📝 Starting summary generation: provider={:?}, model={}, text_length={}, token_threshold={}",
+            provider, model_name, text.len(), token_threshold
+        );
+        info!("📝 Transcript preview in service: {}", text_preview);
+        if text.is_empty() {
+            error!("❌ CRITICAL: Transcript text is EMPTY in process_transcript_background!");
+        }
+        
         let result = generate_meeting_summary(
             &client,
             &provider,
@@ -129,11 +207,33 @@ impl SummaryService {
             ollama_endpoint.as_deref(),
         )
         .await;
+        
+        info!("📝 Summary generation call completed for meeting_id: {}", meeting_id);
 
         let duration = start_time.elapsed().as_secs_f64();
 
         match result {
             Ok((mut final_markdown, num_chunks)) => {
+                // Before saving results, verify this process hasn't been cancelled
+                let current_process = SummaryProcessesRepository::get_summary_data(&pool, &meeting_id).await;
+                match current_process {
+                    Ok(Some(proc)) if proc.status != "processing" => {
+                        warn!(
+                            "⚠️ Process for meeting_id {} is no longer processing (status: {}), discarding results",
+                            meeting_id, proc.status
+                        );
+                        return; // Exit early - this process was cancelled/superseded
+                    }
+                    Ok(None) => {
+                        warn!(
+                            "⚠️ Process entry not found for meeting_id {}, discarding results",
+                            meeting_id
+                        );
+                        return; // Exit early - process was deleted
+                    }
+                    _ => {} // Process is still processing, continue
+                }
+                
                 if num_chunks == 0 && final_markdown.is_empty() {
                     Self::update_process_failed(
                         &pool,

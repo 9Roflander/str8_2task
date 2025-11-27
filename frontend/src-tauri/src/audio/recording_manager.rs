@@ -55,10 +55,16 @@ impl RecordingManager {
     // Remove app handle storage for now - will be passed directly when saving
 
     /// Start recording with specified devices
+    /// 
+    /// # Arguments
+    /// * `microphone_device` - Optional microphone device
+    /// * `system_device` - Optional system audio device
+    /// * `filter_apps` - Optional list of app names to filter system audio (macOS Core Audio only)
     pub async fn start_recording(
         &mut self,
         microphone_device: Option<Arc<AudioDevice>>,
         system_device: Option<Arc<AudioDevice>>,
+        filter_apps: Option<Vec<String>>,
     ) -> Result<mpsc::UnboundedReceiver<AudioChunk>> {
         info!("Starting recording manager");
 
@@ -116,7 +122,8 @@ impl RecordingManager {
 
         // Start audio streams - they send RAW unmixed chunks to pipeline for mixing
         // Pipeline handles mixing and distribution to both recording and transcription
-        self.stream_manager.start_streams(microphone_device.clone(), system_device.clone(), None).await?;
+        // Pass filter_apps for system audio filtering (macOS Core Audio only)
+        self.stream_manager.start_streams(microphone_device.clone(), system_device.clone(), None, filter_apps).await?;
 
         // Start device monitoring to detect disconnects
         if let Some(ref mut monitor) = self.device_monitor {
@@ -157,7 +164,7 @@ impl RecordingManager {
     ///
     /// User still hears audio via Bluetooth (playback), but recording captures
     /// via stable wired path for best quality.
-    pub async fn start_recording_with_defaults(&mut self) -> Result<mpsc::UnboundedReceiver<AudioChunk>> {
+    pub async fn start_recording_with_defaults(&mut self, filter_apps: Option<Vec<String>>) -> Result<mpsc::UnboundedReceiver<AudioChunk>> {
         #[cfg(target_os = "macos")]
         {
             info!("🎙️ [macOS] Starting recording with smart device selection (Bluetooth override enabled)");
@@ -176,7 +183,7 @@ impl RecordingManager {
             }
 
             // Start recording with selected devices
-            self.start_recording(microphone_device, system_device).await
+            self.start_recording(microphone_device, system_device, filter_apps).await
         }
 
         #[cfg(not(target_os = "macos"))]
@@ -211,7 +218,7 @@ impl RecordingManager {
                 return Err(anyhow::anyhow!("No microphone device available"));
             }
 
-            self.start_recording(microphone_device, system_device).await
+            self.start_recording(microphone_device, system_device, filter_apps).await
         }
     }
 
@@ -500,7 +507,9 @@ impl RecordingManager {
                     self.stream_manager.stop_streams()?;
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-                    self.stream_manager.start_streams(Some(device_arc.clone()), system_device, None).await?;
+                    // Note: filter_apps not available during reconnect - use None for now
+                    // TODO: Store filter_apps in RecordingManager state for reconnect scenarios
+                    self.stream_manager.start_streams(Some(device_arc.clone()), system_device, None, None).await?;
                     self.state.set_microphone_device(device_arc);
 
                     info!("✅ Microphone reconnected successfully");
@@ -514,7 +523,9 @@ impl RecordingManager {
                     self.stream_manager.stop_streams()?;
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-                    self.stream_manager.start_streams(microphone_device, Some(device_arc.clone()), None).await?;
+                    // Note: filter_apps not available during reconnect - use None for now
+                    // TODO: Store filter_apps in RecordingManager state for reconnect scenarios
+                    self.stream_manager.start_streams(microphone_device, Some(device_arc.clone()), None, None).await?;
                     self.state.set_system_device(device_arc);
 
                     info!("✅ System audio reconnected successfully");

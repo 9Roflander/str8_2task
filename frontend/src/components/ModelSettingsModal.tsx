@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export interface ModelConfig {
-  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter';
+  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'gemini';
   model: string;
   whisperModel: string;
   apiKey?: string | null;
@@ -133,6 +133,15 @@ export function ModelSettingsModal({
     ollama: models.map((model) => model.name),
     claude: ['claude-3-5-sonnet-latest', 'claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620'],
     groq: ['llama-3.3-70b-versatile'],
+    gemini: [
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b',
+      'gemini-2.0-flash-lite-preview-02-05',
+      'gemini-1.5-pro',
+      'gemini-2.5-flash-preview-05-20',
+      'gemini-2.5-pro-preview-05-06',
+    ],
     openai: [
       'gpt-5',
       'gpt-5-mini',
@@ -165,7 +174,8 @@ export function ModelSettingsModal({
     modelConfig.provider === 'claude' ||
     modelConfig.provider === 'groq' ||
     modelConfig.provider === 'openai' ||
-    modelConfig.provider === 'openrouter';
+    modelConfig.provider === 'openrouter' ||
+    modelConfig.provider === 'gemini';
 
   // Check if Ollama endpoint has changed but models haven't been fetched yet
   const ollamaEndpointChanged = modelConfig.provider === 'ollama' &&
@@ -185,7 +195,20 @@ export function ModelSettingsModal({
 
       try {
         const data = (await invoke('api_get_model_config')) as any;
-        if (data && data.provider !== null) {
+        if (data && data !== null && data.provider !== null && data.provider !== undefined && data.provider !== '') {
+          // Ensure model field is not empty
+          if (!data.model || data.model.trim() === '') {
+            console.warn('⚠️ Model config has empty model field, setting default based on provider');
+            if (data.provider === 'ollama') {
+              data.model = 'llama3.2:latest';
+            } else if (data.provider === 'claude') {
+              data.model = 'claude-3-5-sonnet-latest';
+            } else if (data.provider === 'groq') {
+              data.model = 'llama-3.3-70b-versatile';
+            } else if (data.provider === 'gemini') {
+              data.model = 'gemini-1.5-pro';
+            }
+          }
           setModelConfig(data);
 
           // Fetch API key if not included in response and provider requires it
@@ -207,9 +230,30 @@ export function ModelSettingsModal({
             // Don't set lastFetchedEndpoint here - it will be set after successful model fetch
           }
           hasLoadedInitialConfig.current = true; // Mark that initial config is loaded
+        } else {
+          console.warn('⚠️ No model config found, using defaults');
+          // Set defaults when no config exists
+          const defaultConfig = {
+            provider: 'ollama' as const,
+            model: 'llama3.2:latest',
+            whisperModel: 'large-v3',
+            apiKey: null,
+            ollamaEndpoint: null
+          };
+          setModelConfig(defaultConfig);
+          hasLoadedInitialConfig.current = true;
         }
       } catch (error) {
         console.error('Failed to fetch model config:', error);
+        // Set defaults on error
+        const defaultConfig = {
+          provider: 'ollama' as const,
+          model: 'llama3.2:latest',
+          whisperModel: 'large-v3',
+          apiKey: null,
+          ollamaEndpoint: null
+        };
+        setModelConfig(defaultConfig);
         hasLoadedInitialConfig.current = true; // Mark as loaded even on error
       }
     };
@@ -524,6 +568,7 @@ export function ModelSettingsModal({
                 <SelectItem value="ollama">Ollama</SelectItem>
                 <SelectItem value="openai">OpenAI</SelectItem>
                 <SelectItem value="openrouter">OpenRouter</SelectItem>
+                <SelectItem value="gemini">Gemini</SelectItem>
               </SelectContent>
             </Select>
 

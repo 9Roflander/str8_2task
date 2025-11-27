@@ -141,7 +141,49 @@ Upload and process a transcript file. This endpoint provides the same functional
 }
 ```
 
-### 3. Get Summary
+### 4. Jira Task Analysis
+
+Analyze a meeting transcript and suggest Jira tasks.
+
+**Endpoint:** `/analyze-jira-tasks`  
+**Method:** POST  
+**Content-Type:** `application/json`
+
+#### Request Body
+```json
+{
+    "meeting_id": "string",
+    "model": "string",
+    "model_name": "string",
+    "text": "optional raw transcript text"
+}
+```
+
+#### Behavior
+- If `text` is provided and non-empty, the backend analyzes this text directly and
+  does not depend on its own transcript tables.
+- Otherwise, it attempts to load `transcript_text` via `get_transcript_data(meeting_id)`,
+  which prefers `transcript_chunks` and falls back to concatenated rows from
+  `transcripts`.
+- Returns `404` with `detail: \"Transcript not found\"` when no transcript data is
+  available for the given `meeting_id`.
+
+#### Response
+```json
+{
+    "tasks": [
+        {
+            "summary": "string",
+            "description": "string",
+            "priority": "string",
+            "type": "string",
+            "assignee": "string"
+        }
+    ]
+}
+```
+
+### 5. Get Summary
 Retrieve the generated summary for a specific process.
 
 **Endpoint:** `/get-summary/{process_id}`  
@@ -283,3 +325,16 @@ curl http://localhost:5167/get-summary/1a2e5c9c-a35f-452f-9f92-be66620fcb3f
 3. All timestamps are in ISO format
 4. Colors in blocks can be used for UI styling
 5. The API supports concurrent processing of multiple transcripts
+
+## Supported LLM Providers
+
+Use the `/save-model-config` endpoint to select which provider backs meeting summaries and Jira task extraction. The `provider` field accepts the following values:
+
+- `ollama` – Uses your local Ollama host (default).
+- `claude` – Requires an Anthropic API key.
+- `groq` – Requires a Groq API key.
+- `openai` – Requires an OpenAI API key.
+- `openrouter` – Requires an OpenRouter API key.
+- `gemini` – Uses Google’s Gemini models. Provide a Gemini API key (the value saved in settings is also picked up as `GOOGLE_API_KEY` when running the backend).
+
+When `provider` is anything other than `ollama`, include `apiKey` in the request body (or set it later through `/get-api-key`). Gemini support is available for both transcript summarization and Jira task extraction workflows.

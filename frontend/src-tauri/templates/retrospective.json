@@ -32,9 +32,10 @@
         },
         {
           "title": "Action Items",
-          "instruction": "Concrete experiments with owners and success metrics",
+          "instruction": "Extract ALL concrete experiments with SPECIFIC details: (1) Exact owner name/role (e.g., 'Two developers', 'Designer', 'QA team') - NEVER use 'No blocker' or 'None', (2) Clear task description with task/ticket ID if mentioned (e.g., PROJ-404), (3) Specific due date (date/time like 'by noon today', '3 PM', 'Friday' - not 'None' or 'TBD'), (4) Success metric if mentioned. If owner/due date not mentioned in transcript, write 'Not specified' - NEVER use 'No blocker', 'None', or 'TBD'.",
           "format": "list",
-          "item_format": "| **Owner** | **Task** | **Due Date** | **Success Metric** |\n| --- | --- | --- | --- |"
+          "item_format": "| **Owner** | **Task** | **Due Date** | **Success Metric** |\n| --- | --- | --- | --- |",
+          "example_item_format": "Good example: | Two developers | Fix Stripe webhook (PROJ-404) | Before noon today | Webhook returns correct token |\nBad example: | No blocker | Stripe debugging continues | None | - |"
         },
         {
           "title": "Notes & Votes",

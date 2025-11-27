@@ -1,0 +1,149 @@
+Teams chat panel check - will proceed anyway
+index.js:369 Searching for Teams chat input...
+index.js:372 Found input element: <div id=​"new-message-7fe5a027-ad22-4b32-9af0-a2197355df8d" placeholder=​"Введите сообщение" tabindex=​"0" data-tid=​"ckeditor" data-is-focusable=​"true" data-shortcut-context=​"compose-field" class=​"ck-blurred fui-Primitive ___1czdayc f1poobt0 f1cktdmf f13htf1t f1ubnyt4 f1couhl3 f1ahpp82 f11qra4b f6dzj5z f1p9o1ba fokg9q4 ck ck-content ck-editor__editable ck-rounded-corners ck-editor__editable_inline" lang=​"en" dir=​"ltr" role=​"textbox" contenteditable=​"true" data-tabster=​"{"focusable":​{"isDefault":​true}​, "observed":​{"names":​["chat-input"]​}​}​" style=​"overflow:​hidden;​">​…​</div>​
+index.js:399 Searching for Teams send button...
+index.js:417 Found send button with standard selector: <button data-tid=​"newMessageCommands-send" data-is-focusable=​"true" index=​"2" data-track-action-gesture=​"click" data-track-action-outcome=​"submit" data-track-action-outcome-new=​"submit" data-track-action-scenario-type=​"composeMsg" data-track-module-name=​"sendButton" data-track-module-name-new=​"sendButton" data-track-module-type=​"compose" data-track-module-type-new=​"compose" data-track-tab-type=​"conversations" data-track-tab-type-new=​"conversations" data-track-tab-ordinal=​"1" data-track-panel-region=​"main" data-track-panel-region-new=​"main" data-track-action-scenario=​"composeDiscardDraft" data-track-action-subworkload=​"editMsg" data-track-action-workload=​"chatContent" data-track-app-name=​"chat" data-track-panel-type=​"Chat" data-track-panel-type-new=​"Chat" data-track-thread-type=​"Meeting" data-track-thread-modality=​"Unthreaded" data-track-thread-id=​"19:​meeting_YjE2NTI3NTYtMDAzOC00Nzc2LThmOWYtOGY0ZWU4YTIxNjc2@thread.v2" data-track=​"false" name=​"send" data-tabster=​"{"observed":​{"names":​["send-command"]​}​}​" title=​"Отправить (⌘ Enter)​" class=​"ui-toolbar__item aj apq apr aps apt apu bh bi bj bk apv apw apx apy apz aqa aqb bt bu bv bw aqc aqd ax aqe aqf aqg aqh aqi aqj aqk aql aqm aqn aqo aqp aqq aqr aqs aqt aqu aqv aqw aqx aqy aqz ara arb arc ard are arf arg arh ari arj ark arl arm arn aro arp arq arr ars art aru arv arw arx ary arz asa asb asc asd ase asf asg ash asi asj ___hir5vg0 f3rmtva f1cio4g9 fvaszet" tabindex=​"0">​…​</button>​
+index.js:429 Clicking send button: <button data-tid=​"newMessageCommands-send" data-is-focusable=​"true" index=​"2" data-track-action-gesture=​"click" data-track-action-outcome=​"submit" data-track-action-outcome-new=​"submit" data-track-action-scenario-type=​"composeMsg" data-track-module-name=​"sendButton" data-track-module-name-new=​"sendButton" data-track-module-type=​"compose" data-track-module-type-new=​"compose" data-track-tab-type=​"conversations" data-track-tab-type-new=​"conversations" data-track-tab-ordinal=​"1" data-track-panel-region=​"main" data-track-panel-region-new=​"main" data-track-action-scenario=​"composeDiscardDraft" data-track-action-subworkload=​"editMsg" data-track-action-workload=​"chatContent" data-track-app-name=​"chat" data-track-panel-type=​"Chat" data-track-panel-type-new=​"Chat" data-track-thread-type=​"Meeting" data-track-thread-modality=​"Unthreaded" data-track-thread-id=​"19:​meeting_YjE2NTI3NTYtMDAzOC00Nzc2LThmOWYtOGY0ZWU4YTIxNjc2@thread.v2" data-track=​"false" name=​"send" data-tabster=​"{"observed":​{"names":​["send-command"]​}​}​" title=​"Отправить (⌘ Enter)​" class=​"ui-toolbar__item aj apq apr aps apt apu bh bi bj bk apv apw apx apy apz aqa aqb bt bu bv bw aqc aqd ax aqe aqf aqg aqh aqi aqj aqk aql aqm aqn aqo aqp aqq aqr aqs aqt aqu aqv aqw aqx aqy aqz ara arb arc ard are arf arg arh ari arj ark arl arm arn aro arp arq arr ars art aru arv arw arx ary arz asa asb asc asd ase asf asg ash asi asj ___hir5vg0 f3rmtva f1cio4g9 fvaszet" tabindex=​"0">​…​</button>​
+18538-952ebbd0d1e2e507.js:1 CID[main] SendMessage: Draft validation failed with Введите сообщение, чтобы продолжить.
+push.776619.console.error @ 18538-952ebbd0d1e2e507.js:1
+invoke @ 98668-686ad6489d71254b.js:1
+error @ 98668-686ad6489d71254b.js:1
+(anonymous) @ 15258-4d3c693af670cd57.js:2
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 79953-b77f7bd90fe7dcff.js:48
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+c @ 59841-965bd7a31ccf7531.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+e._execute @ 34548-895b250f204ae5c8.js:1
+e.execute @ 34548-895b250f204ae5c8.js:1
+e.flush @ 34548-895b250f204ae5c8.js:1
+setInterval
+setInterval @ 34548-895b250f204ae5c8.js:1
+e.requestAsyncId @ 34548-895b250f204ae5c8.js:1
+e.schedule @ 34548-895b250f204ae5c8.js:1
+t.schedule @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+t._trySubscribe @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+o @ 34548-895b250f204ae5c8.js:1
+t.subscribe @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 59841-965bd7a31ccf7531.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+o @ 34548-895b250f204ae5c8.js:1
+e.next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 53732-34f612536a3991b1.js:1
+(anonymous) @ 53732-34f612536a3991b1.js:5
+(anonymous) @ 53732-34f612536a3991b1.js:5
+(anonymous) @ 53732-34f612536a3991b1.js:5
+(anonymous) @ 15258-4d3c693af670cd57.js:1
+n.exports @ 71519-e3702cb44ceb3669.js:1
+t.exports @ 89360-e7ae675238f02552.js:1
+n.exports @ 71519-e3702cb44ceb3669.js:1
+(anonymous) @ 71519-e3702cb44ceb3669.js:1
+K @ 39685-1d05a70792ff4517.js:1
+eW @ 12633-393d1df1e0ac112a.js:123
+eY @ 12633-393d1df1e0ac112a.js:123
+eQ @ 12633-393d1df1e0ac112a.js:123
+nE @ 12633-393d1df1e0ac112a.js:123
+n_ @ 12633-393d1df1e0ac112a.js:123
+(anonymous) @ 12633-393d1df1e0ac112a.js:123
+o7 @ 12633-393d1df1e0ac112a.js:123
+eV @ 12633-393d1df1e0ac112a.js:123
+nM @ 12633-393d1df1e0ac112a.js:123
+tZ @ 12633-393d1df1e0ac112a.js:123
+tQ @ 12633-393d1df1e0ac112a.js:123
+postMessage3 @ index.js:432
+await in postMessage3
+postMessage4 @ index.js:476
+(anonymous) @ index.js:484Understand this error
+index.js:363 Teams chat panel check - will proceed anyway
+index.js:369 Searching for Teams chat input...
+index.js:372 Found input element: <div id=​"new-message-7fe5a027-ad22-4b32-9af0-a2197355df8d" placeholder=​"Введите сообщение" tabindex=​"0" data-tid=​"ckeditor" data-is-focusable=​"true" data-shortcut-context=​"compose-field" class=​"ck-blurred fui-Primitive ___1czdayc f1poobt0 f1cktdmf f13htf1t f1ubnyt4 f1couhl3 f1ahpp82 f11qra4b f6dzj5z f1p9o1ba fokg9q4 ck ck-content ck-editor__editable ck-rounded-corners ck-editor__editable_inline" lang=​"en" dir=​"ltr" role=​"textbox" contenteditable=​"true" data-tabster=​"{"focusable":​{"isDefault":​true}​, "observed":​{"names":​["chat-input"]​}​}​" style=​"overflow:​hidden;​">​…​</div>​
+index.js:399 Searching for Teams send button...
+index.js:417 Found send button with standard selector: <button data-tid=​"newMessageCommands-send" data-is-focusable=​"true" index=​"2" data-track-action-gesture=​"click" data-track-action-outcome=​"submit" data-track-action-outcome-new=​"submit" data-track-action-scenario-type=​"composeMsg" data-track-module-name=​"sendButton" data-track-module-name-new=​"sendButton" data-track-module-type=​"compose" data-track-module-type-new=​"compose" data-track-tab-type=​"conversations" data-track-tab-type-new=​"conversations" data-track-tab-ordinal=​"1" data-track-panel-region=​"main" data-track-panel-region-new=​"main" data-track-action-scenario=​"composeDiscardDraft" data-track-action-subworkload=​"editMsg" data-track-action-workload=​"chatContent" data-track-app-name=​"chat" data-track-panel-type=​"Chat" data-track-panel-type-new=​"Chat" data-track-thread-type=​"Meeting" data-track-thread-modality=​"Unthreaded" data-track-thread-id=​"19:​meeting_YjE2NTI3NTYtMDAzOC00Nzc2LThmOWYtOGY0ZWU4YTIxNjc2@thread.v2" data-track=​"false" name=​"send" data-tabster=​"{"observed":​{"names":​["send-command"]​}​}​" title=​"Отправить (⌘ Enter)​" class=​"ui-toolbar__item aj apq apr aps apt apu bh bi bj bk apv apw apx apy apz aqa aqb bt bu bv bw aqc aqd ax aqe aqf aqg aqh aqi aqj aqk aql aqm aqn aqo aqp aqq aqr aqs aqt aqu aqv aqw aqx aqy aqz ara arb arc ard are arf arg arh ari arj ark arl arm arn aro arp arq arr ars art aru arv arw arx ary arz asa asb asc asd ase asf asg ash asi asj ___hir5vg0 f3rmtva f1cio4g9 fvaszet" tabindex=​"0">​…​</button>​
+index.js:429 Clicking send button: <button data-tid=​"newMessageCommands-send" data-is-focusable=​"true" index=​"2" data-track-action-gesture=​"click" data-track-action-outcome=​"submit" data-track-action-outcome-new=​"submit" data-track-action-scenario-type=​"composeMsg" data-track-module-name=​"sendButton" data-track-module-name-new=​"sendButton" data-track-module-type=​"compose" data-track-module-type-new=​"compose" data-track-tab-type=​"conversations" data-track-tab-type-new=​"conversations" data-track-tab-ordinal=​"1" data-track-panel-region=​"main" data-track-panel-region-new=​"main" data-track-action-scenario=​"composeDiscardDraft" data-track-action-subworkload=​"editMsg" data-track-action-workload=​"chatContent" data-track-app-name=​"chat" data-track-panel-type=​"Chat" data-track-panel-type-new=​"Chat" data-track-thread-type=​"Meeting" data-track-thread-modality=​"Unthreaded" data-track-thread-id=​"19:​meeting_YjE2NTI3NTYtMDAzOC00Nzc2LThmOWYtOGY0ZWU4YTIxNjc2@thread.v2" data-track=​"false" name=​"send" data-tabster=​"{"observed":​{"names":​["send-command"]​}​}​" title=​"Отправить (⌘ Enter)​" class=​"ui-toolbar__item aj apq apr aps apt apu bh bi bj bk apv apw apx apy apz aqa aqb bt bu bv bw aqc aqd ax aqe aqf aqg aqh aqi aqj aqk aql aqm aqn aqo aqp aqq aqr aqs aqt aqu aqv aqw aqx aqy aqz ara arb arc ard are arf arg arh ari arj ark arl arm arn aro arp arq arr ars art aru arv arw arx ary arz asa asb asc asd ase asf asg ash asi asj ___hir5vg0 f3rmtva f1cio4g9 fvaszet" tabindex=​"0">​…​</button>​
+18538-952ebbd0d1e2e507.js:1 CID[main] SendMessage: Draft validation failed with Введите сообщение, чтобы продолжить.
+push.776619.console.error @ 18538-952ebbd0d1e2e507.js:1
+invoke @ 98668-686ad6489d71254b.js:1
+error @ 98668-686ad6489d71254b.js:1
+(anonymous) @ 15258-4d3c693af670cd57.js:2
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 79953-b77f7bd90fe7dcff.js:48
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+c @ 59841-965bd7a31ccf7531.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+e._execute @ 34548-895b250f204ae5c8.js:1
+e.execute @ 34548-895b250f204ae5c8.js:1
+e.flush @ 34548-895b250f204ae5c8.js:1
+setInterval
+setInterval @ 34548-895b250f204ae5c8.js:1
+e.requestAsyncId @ 34548-895b250f204ae5c8.js:1
+e.schedule @ 34548-895b250f204ae5c8.js:1
+t.schedule @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+t._trySubscribe @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+o @ 34548-895b250f204ae5c8.js:1
+t.subscribe @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 59841-965bd7a31ccf7531.js:1
+a._next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 34548-895b250f204ae5c8.js:1
+o @ 34548-895b250f204ae5c8.js:1
+e.next @ 34548-895b250f204ae5c8.js:1
+(anonymous) @ 53732-34f612536a3991b1.js:1
+(anonymous) @ 53732-34f612536a3991b1.js:5
+(anonymous) @ 53732-34f612536a3991b1.js:5
+(anonymous) @ 53732-34f612536a3991b1.js:5
+(anonymous) @ 15258-4d3c693af670cd57.js:1
+n.exports @ 71519-e3702cb44ceb3669.js:1
+t.exports @ 89360-e7ae675238f02552.js:1
+n.exports @ 71519-e3702cb44ceb3669.js:1
+(anonymous) @ 71519-e3702cb44ceb3669.js:1
+K @ 39685-1d05a70792ff4517.js:1
+eW @ 12633-393d1df1e0ac112a.js:123
+eY @ 12633-393d1df1e0ac112a.js:123
+eQ @ 12633-393d1df1e0ac112a.js:123
+nE @ 12633-393d1df1e0ac112a.js:123
+n_ @ 12633-393d1df1e0ac112a.js:123
+(anonymous) @ 12633-393d1df1e0ac112a.js:123
+o7 @ 12633-393d1df1e0ac112a.js:123
+eV @ 12633-393d1df1e0ac112a.js:123
+nM @ 12633-393d1df1e0ac112a.js:123
+tZ @ 12633-393d1df1e0ac112a.js:123
+tQ @ 12633-393d1df1e0ac112a.js:123
+postMessage3 @ index.js:432
+await in postMessage3
+postMessage4 @ index.js:476
+(anonymous) @ index.js:484Understand this error
+

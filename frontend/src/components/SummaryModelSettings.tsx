@@ -22,7 +22,20 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
   const fetchModelConfig = useCallback(async () => {
     try {
       const data = await invoke('api_get_model_config') as any;
-      if (data && data.provider !== null) {
+      if (data && data !== null && data.provider !== null && data.provider !== undefined && data.provider !== '') {
+        // Ensure model field is not empty
+        if (!data.model || data.model.trim() === '') {
+          console.warn('⚠️ Model config has empty model field, setting default based on provider');
+          if (data.provider === 'ollama') {
+            data.model = 'llama3.2:latest';
+          } else if (data.provider === 'claude') {
+            data.model = 'claude-3-5-sonnet-latest';
+          } else if (data.provider === 'groq') {
+            data.model = 'llama-3.3-70b-versatile';
+          } else if (data.provider === 'gemini') {
+            data.model = 'gemini-1.5-pro';
+          }
+        }
         // Fetch API key if not included and provider requires it
         if (data.provider !== 'ollama' && !data.apiKey) {
           try {
@@ -35,10 +48,27 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
           }
         }
         setModelConfig(data);
+      } else {
+        console.warn('⚠️ No model config found, using defaults');
+        setModelConfig({
+          provider: 'ollama',
+          model: 'llama3.2:latest',
+          whisperModel: 'large-v3',
+          apiKey: null,
+          ollamaEndpoint: null
+        });
       }
     } catch (error) {
       console.error('Failed to fetch model config:', error);
       toast.error('Failed to load model settings');
+      // Set defaults on error
+      setModelConfig({
+        provider: 'ollama',
+        model: 'llama3.2:latest',
+        whisperModel: 'large-v3',
+        apiKey: null,
+        ollamaEndpoint: null
+      });
     }
   }, []);
 

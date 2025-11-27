@@ -4,6 +4,7 @@ use crate::database::repositories::{
 };
 use crate::state::AppState;
 use crate::summary::service::SummaryService;
+use crate::summary::question_generator;
 use log::{error as log_error, info as log_info, warn as log_warn};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Runtime};
@@ -220,7 +221,17 @@ pub async fn api_process_transcript<R: Runtime>(
 
     // Spawn background task for actual processing
     let meeting_id_clone = m_id.clone();
+    let text_len = text.len();
+    let text_preview = if text.len() > 200 {
+        format!("{}...", &text[..200])
+    } else {
+        text.clone()
+    };
+    log_info!("📝 Transcript received in api_process_transcript: length={} chars, preview: {}", text_len, text_preview);
+    
     tauri::async_runtime::spawn(async move {
+        log_info!("🔄 Background task starting for meeting_id: {}", meeting_id_clone);
+        log_info!("📝 Transcript in background task: length={} chars", text.len());
         SummaryService::process_transcript_background(
             app,
             pool,
@@ -232,6 +243,7 @@ pub async fn api_process_transcript<R: Runtime>(
             final_template_id,
         )
         .await;
+        log_info!("✅ Background task completed for meeting_id: {}", meeting_id_clone);
     });
 
     log_info!("🚀 Background task spawned for meeting_id: {}", &m_id);
@@ -240,4 +252,18 @@ pub async fn api_process_transcript<R: Runtime>(
         message: "Summary generation started".to_string(),
         process_id: m_id,
     })
+}
+
+/// Generate clarifying questions from transcript chunk
+#[tauri::command]
+pub async fn generate_clarifying_questions<R: Runtime>(
+    _app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    transcript_chunk: String,
+    recent_context: String,
+) -> Result<Vec<question_generator::Question>, String> {
+    log_info!("generate_clarifying_questions called");
+    let pool = state.db_manager.pool();
+    
+    question_generator::generate_questions(pool, &transcript_chunk, &recent_context).await
 }

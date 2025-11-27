@@ -1,0 +1,70 @@
+Okay, are we—is everyone here? Where's... wait, where's Jen?
+
+She's pinged me, she's dropping off kids. She'll be late.
+
+Okay, whatever. Let's go. Mark, you're up.
+
+Yeah, so... uh... yesterday was a mess. I tried to run the migration we talked about, the user table one? It completely blew up staging. Like, 500 errors everywhere. So I spent the whole afternoon just rolling that back.
+
+Wait, is that why the QA environment was down? I couldn't test the payment gateway.
+
+Yeah, sorry. It's back now. Anyway, I'm not... I don't think I can fix it today. I need to talk to Ops about the permissions.
+
+Okay, hold on. Do we need a ticket for the Ops request?
+
+No, I just need to slack Bob. But actually... Sarah, can you maybe look at the logs? If you have time?
+
+I'm pretty swamped with the payment API. That's actually my update. I'm stuck on the Stripe webhook. It's not returning the right—uh—token? I think the documentation is outdated.
+
+Is that a blocker?
+
+Definitely. I can't finish the checkout flow without it.
+
+Alright. Mark, forget the migration for a sec. Can you pair with Sarah on the Stripe thing? That's higher priority.
+
+Ugh, okay. I'll park my ticket. What number was that?
+
+PROJ-404.
+
+Cool. So Mark is helping Sarah on 404. Anything else?
+
+Oh, one more thing. The coffee machine is broken.
+
+Not a Jira ticket, Mark. Okay, let's move on. Sam? QA update?
+
+Yeah, can you hear me? My mic was acting up. Okay. So, because Staging was down, I couldn't verify the Header Fix ticket. That was... DEV-399, I think. I'm gonna move that back to "In Progress" because I technically haven't passed it yet.
+
+Make sense. Anything else?
+
+Yeah, I found a new issue on the mobile view. The "Search" bar disappears when you rotate the screen on iOS. It's pretty bad. I haven't logged it yet.
+
+Okay, log that immediately after this call. Is that a release blocker for Friday?
+
+I'd say yes. If we ship with a broken search, support is gonna kill us.
+
+Wait, I thought we removed the search bar on mobile for this release? I updated the Figma last week.
+
+Nobody told me. The ticket says "Responsive Search."
+
+Okay, sidebar. Alex, check the requirements on DEV-300. If we cut it, close the ticket. If not, Sam logs the bug. Let's resolve that offline. Jen? I see you joined.
+
+Hey, sorry! School drop-off was a nightmare. I'm here. Uh, update... yesterday I finished the User Profile UI components. I put the PR up this morning.
+
+Nice. Who's reviewing?
+
+I tagged Mark, but I know he's busy with the migration thing.
+
+I'm actually pairing with Sarah now, so I probably can't look at it until tomorrow.
+
+Okay... um... Alex? Can you verify the CSS at least? I don't want to merge if the margins are off again like last time.
+
+Yeah, send me the staging link. I'll look at it before lunch.
+
+So Jen, what are you picking up today?
+
+I was gonna start the Settings Page, but I don't have the assets for the dark mode icons. Alex, are those ready?
+
+Ah, shoot. No. I was focusing on the marketing landing page yesterday. I can get you the icons by... maybe 3 PM?
+
+Okay. I'll do some refactoring on the utils folder until then. No blockers other than the assets.
+

@@ -31,11 +31,12 @@ import { Copy, GlobeIcon, Settings } from 'lucide-react';
 import { MicrophoneIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { ButtonGroup } from '@/components/ui/button-group';
+import { QuestionPopup } from '@/components/QuestionPopup';
 
 
 
 interface ModelConfig {
-  provider: 'ollama' | 'groq' | 'claude' | 'openrouter';
+  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'gemini';
   model: string;
   whisperModel: string;
 }
@@ -105,6 +106,17 @@ export default function Home() {
     }
     return true;
   });
+  const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
+  const transcriptBufferRef = useRef<string[]>([]); // Keep last 5 chunks for context
+
+  // Track currentQuestion state changes
+  useEffect(() => {
+    if (currentQuestion) {
+      console.log('📌 [Question Flow] currentQuestion state updated to:', currentQuestion);
+    } else {
+      console.log('📌 [Question Flow] currentQuestion state cleared (set to null)');
+    }
+  }, [currentQuestion]);
 
   // Permission check hook
   const { hasMicrophone, hasSystemAudio, isChecking: isCheckingPermissions, checkPermissions } = usePermissionCheck();
@@ -424,6 +436,15 @@ export default function Home() {
 
     const setupListener = async () => {
       try {
+        // Check if we're in a Tauri environment
+        if (typeof window === 'undefined' || !(window as any).__TAURI__) {
+          console.warn('⚠️ Not in Tauri environment, skipping transcript listener setup');
+          return;
+        }
+
+        // Wait a bit for Tauri to be fully ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         console.log('🔥 Setting up MAIN transcript listener during component initialization...');
         unlistenFn = await listen<TranscriptUpdate>('transcript-update', (event) => {
           const now = Date.now();
@@ -461,6 +482,61 @@ export default function Home() {
           transcriptBuffer.set(event.payload.sequence_id, newTranscript);
           console.log(`✅ MAIN LISTENER: Buffered transcript with sequence_id ${event.payload.sequence_id}. Buffer size: ${transcriptBuffer.size}, Last processed: ${lastProcessedSequence}`);
 
+          // Generate clarifying questions (async, non-blocking)
+          if (event.payload.text.trim().length > 50) { // Only for substantial chunks
+            const chunkText = event.payload.text;
+            transcriptBufferRef.current.push(chunkText);
+            if (transcriptBufferRef.current.length > 5) {
+              transcriptBufferRef.current.shift(); // Keep last 5
+            }
+            const recentContext = transcriptBufferRef.current.slice(0, -1).join('\n');
+            
+            console.log('🔍 [Question Flow] Triggering question generation:', {
+              chunkLength: chunkText.length,
+              contextLength: recentContext.length,
+              chunkPreview: chunkText.substring(0, 100) + '...'
+            });
+            
+            // Generate questions in background (don't await)
+            invoke('generate_clarifying_questions', {
+              transcriptChunk: chunkText,
+              recentContext: recentContext
+            }).then((questions: any) => {
+              console.log('📥 [Question Flow] Questions received from Rust:', {
+                rawResponse: questions,
+                isArray: Array.isArray(questions),
+                length: Array.isArray(questions) ? questions.length : 'N/A',
+                type: typeof questions
+              });
+              
+              if (Array.isArray(questions) && questions.length > 0) {
+                console.log('✅ [Question Flow] First question object:', questions[0]);
+                console.log('📝 [Question Flow] Question text:', questions[0].text);
+                
+                if (questions[0].text) {
+                  console.log('🎯 [Question Flow] Setting currentQuestion to:', questions[0].text);
+                  setCurrentQuestion(questions[0].text);
+                  console.log('✅ [Question Flow] Question set successfully');
+                } else {
+                  console.warn('⚠️ [Question Flow] Question object missing .text property:', questions[0]);
+                }
+              } else {
+                console.log('ℹ️ [Question Flow] No questions to display:', {
+                  isArray: Array.isArray(questions),
+                  length: Array.isArray(questions) ? questions.length : 'N/A',
+                  isEmpty: Array.isArray(questions) && questions.length === 0
+                });
+              }
+            }).catch(err => {
+              console.error('❌ [Question Flow] Question generation failed:', err);
+              console.error('❌ [Question Flow] Error details:', {
+                message: err?.message,
+                stack: err?.stack,
+                error: err
+              });
+            });
+          }
+
           // Clear any existing timer and set a new one
           if (processingTimer) {
             clearTimeout(processingTimer);
@@ -491,6 +567,43 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Load saved summary on mount
+  useEffect(() => {
+    const loadSavedSummary = async () => {
+      try {
+        const currentMeetingId = isMeetingActive && meetings.length > 0 ? meetings[0].id : null;
+        if (currentMeetingId) {
+          const result = await invoke('api_get_summary', {
+            meetingId: currentMeetingId
+          }) as any;
+          
+          if (result.status === 'completed' && result.data) {
+            const { MeetingName, ...summaryData } = result.data;
+            if (MeetingName) {
+              setMeetingTitle(MeetingName);
+            }
+            const formattedSummary = Object.entries(summaryData).reduce((acc: Summary, [key, section]: [string, any]) => {
+              acc[key] = {
+                title: section.title,
+                blocks: section.blocks.map((block: any) => ({
+                  ...block,
+                  color: 'default',
+                  content: block.content.trim()
+                }))
+              };
+              return acc;
+            }, {} as Summary);
+            setAiSummary(formattedSummary);
+            setSummaryStatus('completed');
+          }
+        }
+      } catch (err) {
+        console.debug('No saved summary found:', err);
+      }
+    };
+    loadSavedSummary();
+  }, [isMeetingActive, meetings]);
 
   // Sync transcript history and meeting name from backend on reload
   // This fixes the issue where reloading during active recording causes state desync
@@ -1223,6 +1336,17 @@ export default function Home() {
 
             setAiSummary(formattedSummary);
             setSummaryStatus('completed');
+            
+            // Save summary to backend for persistence
+            try {
+              await invoke('api_save_meeting_summary', {
+                meetingId: process_id,
+                summary: result.data
+              });
+              console.log('Summary saved successfully');
+            } catch (err) {
+              console.error('Failed to save summary:', err);
+            }
           }
         } catch (error) {
           console.error('Failed to get summary status:', error);
@@ -1559,16 +1683,36 @@ export default function Home() {
     const fetchModelConfig = async () => {
       try {
         const data = await invoke('api_get_model_config') as any;
-        if (data && data.provider) {
+        if (data && data !== null && data.provider && data.provider !== null && data.provider !== undefined && data.provider !== '') {
+          // Ensure model field is not empty
+          const modelValue = data.model && data.model.trim() !== '' 
+            ? data.model 
+            : (data.provider === 'ollama' ? 'llama3.2:latest' : modelConfig.model);
           setModelConfig(prev => ({
             ...prev,
             provider: data.provider,
-            model: data.model || prev.model,
+            model: modelValue,
             whisperModel: data.whisperModel || prev.whisperModel,
+          }));
+        } else {
+          // Set defaults if no config found
+          console.warn('⚠️ No model config found in page.tsx, using defaults');
+          setModelConfig(prev => ({
+            ...prev,
+            provider: 'ollama',
+            model: prev.model || 'llama3.2:latest',
+            whisperModel: prev.whisperModel || 'large-v3',
           }));
         }
       } catch (error) {
         console.error('Failed to fetch saved model config in page.tsx:', error);
+        // Set defaults on error
+        setModelConfig(prev => ({
+          ...prev,
+          provider: 'ollama',
+          model: prev.model || 'llama3.2:latest',
+          whisperModel: prev.whisperModel || 'large-v3',
+        }));
       }
     };
     fetchModelConfig();
@@ -1663,7 +1807,10 @@ export default function Home() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('📋 Copy button clicked!');
                         handleCopyTranscript();
                       }}
                       title="Copy Transcript"
@@ -1678,7 +1825,12 @@ export default function Home() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowModelSelector(true)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('⚙️ Model Settings button clicked!');
+                        setShowModelSelector(true);
+                      }}
                       title="Transcription Model Settings"
                     >
                       <Settings />
@@ -1825,6 +1977,21 @@ export default function Home() {
               />
             </div>
           )}
+
+          {/* Question Popup */}
+          {currentQuestion && (() => {
+            console.log('🎨 [Question Flow] Rendering QuestionPopup (second location) with:', currentQuestion);
+            return (
+              <QuestionPopup
+                question={currentQuestion}
+                onClose={() => {
+                  console.log('❌ [Question Flow] QuestionPopup closed by user (second location)');
+                  setCurrentQuestion(null);
+                }}
+                duration={30}
+              />
+            );
+          })()}
 
           {/* Transcript content */}
           <div className="pb-20">
@@ -2185,6 +2352,21 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* Question Popup */}
+          {currentQuestion && (() => {
+            console.log('🎨 [Question Flow] Rendering QuestionPopup (second location) with:', currentQuestion);
+            return (
+              <QuestionPopup
+                question={currentQuestion}
+                onClose={() => {
+                  console.log('❌ [Question Flow] QuestionPopup closed by user (second location)');
+                  setCurrentQuestion(null);
+                }}
+                duration={30}
+              />
+            );
+          })()}
         </div>
 
         {/* Right side - AI Summary */}

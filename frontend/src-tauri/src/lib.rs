@@ -599,10 +599,25 @@ pub fn run() {
             api::test_backend_connection,
             api::debug_backend_connection,
             api::open_external_url,
+            // Jira commands
+            api::api_save_jira_config,
+            api::api_get_jira_config,
+            api::api_create_jira_task,
+            api::api_analyze_jira_tasks,
+            api::api_get_jira_projects,
+            api::api_get_jira_issue_types,
+            api::api_get_jira_project_context,
+            api::api_search_jira_issues,
+            api::api_get_jira_issue,
+            api::api_update_jira_issue,
+            api::api_add_jira_comment,
+            api::api_get_jira_transitions,
+            api::api_transition_jira_issue,
             // Summary commands
             summary::api_process_transcript,
             summary::api_get_summary,
             summary::api_save_meeting_summary,
+            summary::commands::generate_clarifying_questions,
             // Template commands
             summary::api_list_templates,
             summary::api_get_template_details,
@@ -642,6 +657,7 @@ pub fn run() {
             audio::system_audio_commands::start_system_audio_monitoring,
             audio::system_audio_commands::stop_system_audio_monitoring,
             audio::system_audio_commands::get_system_audio_monitoring_status,
+            audio::system_audio_commands::get_apps_using_audio,
             // Screen Recording permission commands
             audio::permissions::check_screen_recording_permission_command,
             audio::permissions::request_screen_recording_permission_command,

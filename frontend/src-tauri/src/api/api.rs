@@ -183,6 +183,74 @@ pub struct Profile {
     pub is_licensed: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JiraConfig {
+    pub url: String,
+    pub email: String,
+    pub api_token: String,
+    pub default_project_key: Option<String>,
+    pub default_issue_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JiraTaskCreate {
+    pub project_key: String,
+    pub summary: String,
+    pub description: String,
+    pub issue_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duedate: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JiraAnalysisRequest {
+    pub meeting_id: String,
+    pub model: String,
+    pub model_name: String,
+    // Optional raw transcript text; when present, backend will use this
+    // directly instead of fetching from its own database.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    // Project key for context-aware task generation (required)
+    pub project_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JiraIssueUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,  // accountId or "-1" to unassign
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duedate: Option<String>,  // YYYY-MM-DD format
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customfield_10020: Option<String>,  // Start date (common custom field)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JiraCommentCreate {
+    pub body: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JiraTransitionRequest {
+    pub transition_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
 // Helper function to get auth token from store (optional)
 #[allow(dead_code)]
 async fn get_auth_token<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
@@ -224,7 +292,10 @@ async fn make_api_request<R: Runtime, T: for<'de> Deserialize<'de>>(
     additional_headers: Option<HashMap<String, String>>,
     auth_token: Option<String>, // Pass auth token from frontend
 ) -> Result<T, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     let server_url = get_server_address(app).await?;
 
     let url = format!("{}{}", server_url, endpoint);
@@ -526,13 +597,43 @@ pub async fn api_save_model_config<R: Runtime>(
         return Err(e.to_string());
     }
 
-    if let Some(key) = api_key {
+    // Clone api_key for use in sync payload (needed because we use it below)
+    let api_key_for_sync = api_key.clone();
+    
+    if let Some(key) = &api_key {
         if !key.is_empty() {
             log_info!("🔑 API key provided, saving...");
-            if let Err(e) = SettingsRepository::save_api_key(pool, &provider, &key).await {
+            if let Err(e) = SettingsRepository::save_api_key(pool, &provider, key).await {
                 log_error!("❌ Failed to save API key: {}", e);
                 return Err(e.to_string());
             }
+        }
+    }
+
+    // Sync to Python backend as well
+    log_info!("🔄 Syncing model configuration to Python backend...");
+    let sync_payload = serde_json::json!({
+        "provider": provider,
+        "model": model,
+        "whisperModel": whisper_model,
+        "apiKey": api_key_for_sync
+    });
+    
+    match make_api_request::<R, serde_json::Value>(
+        &_app,
+        "/save-model-config",
+        "POST",
+        Some(&sync_payload.to_string()),
+        None,
+        None,
+    ).await {
+        Ok(_) => {
+            log_info!("✅ Successfully synced model configuration to Python backend");
+        }
+        Err(e) => {
+            // Don't fail the whole operation if backend sync fails - just log a warning
+            log_warn!("⚠️ Failed to sync to Python backend (this is non-critical): {}", e);
+            log_warn!("⚠️ You may need to set GOOGLE_API_KEY environment variable or manually sync the API key");
         }
     }
 
@@ -800,14 +901,206 @@ pub async fn api_save_meeting_title<R: Runtime>(
             Ok(serde_json::json!({"message": "Meeting title saved successfully"}))
         }
         Ok(false) => {
-            log_error!("No meeting found with id {}", meeting_id);
-            Err(format!("No meeting found with id {}", meeting_id))
+            log_warn!("Meeting not found: {}", meeting_id);
+            Err(format!("Meeting not found: {}", meeting_id))
         }
         Err(e) => {
-            log_error!("Failed to update meeting {}", e);
-            Err(format!("Failed to update meeting: {}", e))
+            log_error!("Error saving meeting title: {}", e);
+            Err(format!("Failed to save meeting title: {}", e))
         }
     }
+}
+
+#[tauri::command]
+pub async fn api_save_jira_config<R: Runtime>(
+    app: AppHandle<R>,
+    config: JiraConfig,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_save_jira_config called");
+    let body = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    make_api_request::<R, serde_json::Value>(&app, "/save-jira-config", "POST", Some(&body), None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_get_jira_config<R: Runtime>(
+    app: AppHandle<R>,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_jira_config called");
+    make_api_request::<R, serde_json::Value>(&app, "/get-jira-config", "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_create_jira_task<R: Runtime>(
+    app: AppHandle<R>,
+    task: JiraTaskCreate,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_create_jira_task called");
+    let body = serde_json::to_string(&task).map_err(|e| e.to_string())?;
+    make_api_request::<R, serde_json::Value>(&app, "/create-jira-task", "POST", Some(&body), None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_analyze_jira_tasks<R: Runtime>(
+    app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    request: JiraAnalysisRequest,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let has_text = request
+        .text
+        .as_ref()
+        .map(|t| !t.trim().is_empty())
+        .unwrap_or(false);
+    let text_len = request.text.as_ref().map(|t| t.len()).unwrap_or(0);
+
+    log_info!(
+        "api_analyze_jira_tasks called (meeting_id={}, model={}, model_name={}, has_text={}, text_len={})",
+        request.meeting_id,
+        request.model,
+        request.model_name,
+        has_text,
+        text_len
+    );
+
+    // If using Gemini, ensure API key is synced to backend
+    if request.model.to_lowercase() == "gemini" {
+        let pool = state.db_manager.pool();
+        if let Ok(Some(api_key)) = SettingsRepository::get_api_key(pool, "gemini").await {
+            if !api_key.is_empty() {
+                log_info!("🔄 Ensuring Gemini API key is synced to backend before Jira analysis...");
+                // Get model config to sync
+                if let Ok(Some(config)) = SettingsRepository::get_model_config(pool).await {
+                    let sync_payload = serde_json::json!({
+                        "provider": "gemini",
+                        "model": config.model,
+                        "whisperModel": config.whisper_model,
+                        "apiKey": api_key
+                    });
+                    
+                    // Try to sync (non-blocking - don't fail if it doesn't work)
+                    let _ = make_api_request::<R, serde_json::Value>(
+                        &app,
+                        "/save-model-config",
+                        "POST",
+                        Some(&sync_payload.to_string()),
+                        None,
+                        None,
+                    ).await;
+                }
+            }
+        }
+    }
+
+    let body = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+    make_api_request::<R, serde_json::Value>(&app, "/analyze-jira-tasks", "POST", Some(&body), None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_get_jira_projects<R: Runtime>(
+    app: AppHandle<R>,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_jira_projects called");
+    make_api_request::<R, serde_json::Value>(&app, "/get-jira-projects", "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_get_jira_issue_types<R: Runtime>(
+    app: AppHandle<R>,
+    project_key: String,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_jira_issue_types called for project: {}", project_key);
+    let endpoint = format!("/get-jira-issue-types/{}", project_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_get_jira_project_context<R: Runtime>(
+    app: AppHandle<R>,
+    project_key: String,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_jira_project_context called for project: {}", project_key);
+    let endpoint = format!("/get-jira-project-context/{}", project_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_search_jira_issues<R: Runtime>(
+    app: AppHandle<R>,
+    jql: String,
+    max_results: Option<i32>,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_search_jira_issues called with JQL: {}", jql);
+    let max = max_results.unwrap_or(50);
+    let endpoint = format!("/search-jira-issues?jql={}&max_results={}", urlencoding::encode(&jql), max);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_get_jira_issue<R: Runtime>(
+    app: AppHandle<R>,
+    issue_key: String,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_jira_issue called for issue: {}", issue_key);
+    let endpoint = format!("/get-jira-issue/{}", issue_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_update_jira_issue<R: Runtime>(
+    app: AppHandle<R>,
+    issue_key: String,
+    update: JiraIssueUpdate,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_update_jira_issue called for issue: {}", issue_key);
+    let body = serde_json::to_string(&update).map_err(|e| e.to_string())?;
+    let endpoint = format!("/update-jira-issue/{}", issue_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "POST", Some(&body), None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_add_jira_comment<R: Runtime>(
+    app: AppHandle<R>,
+    issue_key: String,
+    comment: JiraCommentCreate,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_add_jira_comment called for issue: {}", issue_key);
+    let body = serde_json::to_string(&comment).map_err(|e| e.to_string())?;
+    let endpoint = format!("/add-jira-comment/{}", issue_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "POST", Some(&body), None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_get_jira_transitions<R: Runtime>(
+    app: AppHandle<R>,
+    issue_key: String,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_get_jira_transitions called for issue: {}", issue_key);
+    let endpoint = format!("/get-jira-transitions/{}", issue_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "GET", None, None, auth_token).await
+}
+
+#[tauri::command]
+pub async fn api_transition_jira_issue<R: Runtime>(
+    app: AppHandle<R>,
+    issue_key: String,
+    transition: JiraTransitionRequest,
+    auth_token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("api_transition_jira_issue called for issue: {} with transition_id: {}", issue_key, transition.transition_id);
+    let body = serde_json::to_string(&transition).map_err(|e| e.to_string())?;
+    let endpoint = format!("/transition-jira-issue/{}", issue_key);
+    make_api_request::<R, serde_json::Value>(&app, &endpoint, "POST", Some(&body), None, auth_token).await
 }
 
 #[tauri::command]

@@ -14,9 +14,10 @@
     },
     {
       "title": "Action Items",
-      "instruction": "List all assigned tasks with their owners and due date. Always add reference transcript segment and timestamp in the table.",
+      "instruction": "Extract ALL action items with SPECIFIC details: (1) Exact owner name/role (e.g., 'Two developers', 'Designer', 'QA team') - NEVER use 'No blocker' or 'None', (2) Clear task description with task/ticket ID if mentioned (e.g., PROJ-404), (3) Specific deadline (date/time like 'by noon today', '3 PM', 'Friday' - not 'None' or 'TBD'), (4) Priority level if mentioned, (5) Dependencies if mentioned. If owner/deadline not mentioned in transcript, write 'Not specified' - NEVER use 'No blocker', 'None', or 'TBD'. Always add reference transcript segment and timestamp in the table.",
       "format": "list",
-      "item_format": "| **Owner** | Task | Due | Reference Transcript Segment | Segment Time stamp |\n| --- | --- | --- | --- | --- |"
+      "item_format": "| **Owner** | Task | Due | Reference Transcript Segment | Segment Time stamp |\n| --- | --- | --- | --- | --- |",
+      "example_item_format": "Good example: | Two developers | Fix Stripe webhook (PROJ-404) | Before noon today | (Transcript segment) | (Timestamp) |\nBad example: | No blocker | Stripe debugging continues | None | (Transcript Chunk 6) | (Transcript Chunk 12-18) |"
     },
     {
       "title": "Discussion Highlights",

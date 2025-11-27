@@ -138,9 +138,15 @@ class DatabaseManager:
                     groqApiKey TEXT,
                     openaiApiKey TEXT,
                     anthropicApiKey TEXT,
-                    ollamaApiKey TEXT
+                    ollamaApiKey TEXT,
+                    geminiApiKey TEXT
                 )
             """)
+            try:
+                cursor.execute("ALTER TABLE settings ADD COLUMN geminiApiKey TEXT")
+                logger.info("Added geminiApiKey column to settings table")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
             # Create transcript_settings table
             cursor.execute("""
@@ -153,6 +159,18 @@ class DatabaseManager:
                     elevenLabsApiKey TEXT,
                     groqApiKey TEXT,
                     openaiApiKey TEXT
+                )
+            """)
+
+            # Create jira_settings table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS jira_settings (
+                    id TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    api_token TEXT NOT NULL,
+                    default_project_key TEXT,
+                    default_issue_type TEXT
                 )
             """)
 
@@ -349,16 +367,50 @@ class DatabaseManager:
     async def get_transcript_data(self, meeting_id: str):
         """Get transcript data for a meeting"""
         async with self._get_connection() as conn:
+            # First try to get from transcript_chunks (for processed transcripts)
             async with conn.execute("""
                 SELECT t.*, p.status, p.result, p.error 
                 FROM transcript_chunks t 
-                JOIN summary_processes p ON t.meeting_id = p.meeting_id 
+                LEFT JOIN summary_processes p ON t.meeting_id = p.meeting_id 
                 WHERE t.meeting_id = ?
             """, (meeting_id,)) as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    return dict(zip([col[0] for col in cursor.description], row))
-                return None
+                    result = dict(zip([col[0] for col in cursor.description], row))
+                    # Ensure transcript_text exists
+                    if result.get("transcript_text"):
+                        return result
+            
+            # If not found in transcript_chunks, try to get from transcripts table
+            # and combine all transcript segments into full text
+            async with conn.execute("""
+                SELECT transcript, timestamp
+                FROM transcripts
+                WHERE meeting_id = ?
+                ORDER BY timestamp ASC
+            """, (meeting_id,)) as cursor:
+                rows = await cursor.fetchall()
+                if rows:
+                    # Combine all transcript segments
+                    transcript_text = "\n".join([row[0] for row in rows if row[0]])
+                    if transcript_text:
+                        # Get summary process status if exists
+                        async with conn.execute("""
+                            SELECT status, result, error
+                            FROM summary_processes
+                            WHERE meeting_id = ?
+                        """, (meeting_id,)) as proc_cursor:
+                            proc_row = await proc_cursor.fetchone()
+                            result = {
+                                "meeting_id": meeting_id,
+                                "transcript_text": transcript_text,
+                                "status": proc_row[0] if proc_row else None,
+                                "result": proc_row[1] if proc_row else None,
+                                "error": proc_row[2] if proc_row else None
+                            }
+                            return result
+            
+            return None
 
     async def save_meeting(self, meeting_id: str, title: str, folder_path: str = None):
         """Save or update a meeting"""
@@ -581,7 +633,7 @@ class DatabaseManager:
 
     async def save_api_key(self, api_key: str, provider: str):
         """Save the API key"""
-        provider_list = ["openai", "claude", "groq", "ollama"]
+        provider_list = ["openai", "claude", "groq", "ollama", "gemini"]
         if provider not in provider_list:
             raise ValueError(f"Invalid provider: {provider}")
         if provider == "openai":
@@ -592,6 +644,8 @@ class DatabaseManager:
             api_key_name = "groqApiKey"
         elif provider == "ollama":
             api_key_name = "ollamaApiKey"
+        elif provider == "gemini":
+            api_key_name = "geminiApiKey"
             
         try:
             async with self._get_connection() as conn:
@@ -626,7 +680,7 @@ class DatabaseManager:
 
     async def get_api_key(self, provider: str):
         """Get the API key"""
-        provider_list = ["openai", "claude", "groq", "ollama"]
+        provider_list = ["openai", "claude", "groq", "ollama", "gemini"]
         if provider not in provider_list:
             raise ValueError(f"Invalid provider: {provider}")
         if provider == "openai":
@@ -637,6 +691,8 @@ class DatabaseManager:
             api_key_name = "groqApiKey"
         elif provider == "ollama":
             api_key_name = "ollamaApiKey"
+        elif provider == "gemini":
+            api_key_name = "geminiApiKey"
         async with self._get_connection() as conn:
             cursor = await conn.execute(f"SELECT {api_key_name} FROM settings WHERE id = '1'")
             row = await cursor.fetchone()
@@ -799,67 +855,109 @@ class DatabaseManager:
                 
                 chunk_rows = await cursor2.fetchall()
                 
-                # Format the results
-                results = []
+                # Combine results
+                # Format: {'id': meeting_id, 'title': title, 'match_preview': snippet, 'timestamp': timestamp}
+                formatted_results = []
                 
-                # Process transcript matches
                 for row in rows:
-                    meeting_id, title, transcript, timestamp = row
-                    
-                    # Find the matching context (snippet around the match)
-                    transcript_lower = transcript.lower()
-                    match_index = transcript_lower.find(query.lower())
-                    
-                    # Extract context around the match (100 chars before and after)
-                    start_index = max(0, match_index - 100)
-                    end_index = min(len(transcript), match_index + len(query) + 100)
-                    context = transcript[start_index:end_index]
-                    
-                    # Add ellipsis if we truncated the text
-                    if start_index > 0:
-                        context = "..." + context
-                    if end_index < len(transcript):
-                        context += "..."
-                    
-                    results.append({
-                        'id': meeting_id,
-                        'title': title,
-                        'matchContext': context,
-                        'timestamp': timestamp
+                    formatted_results.append({
+                        "id": row[0],
+                        "title": row[1],
+                        "match_preview": row[2][:200] + "..." if len(row[2]) > 200 else row[2],
+                        "timestamp": row[3],
+                        "type": "transcript_segment"
                     })
-                
-                # Process transcript_chunks matches
+                    
                 for row in chunk_rows:
-                    meeting_id, title, transcript_text = row
-                    
-                    # Find the matching context (snippet around the match)
-                    transcript_lower = transcript_text.lower()
-                    match_index = transcript_lower.find(query.lower())
-                    
-                    # Extract context around the match (100 chars before and after)
-                    start_index = max(0, match_index - 100)
-                    end_index = min(len(transcript_text), match_index + len(query) + 100)
-                    context = transcript_text[start_index:end_index]
-                    
-                    # Add ellipsis if we truncated the text
-                    if start_index > 0:
-                        context = "..." + context
-                    if end_index < len(transcript_text):
-                        context += "..."
-                    
-                    results.append({
-                        'id': meeting_id,
-                        'title': title,
-                        'matchContext': context,
-                        'timestamp': datetime.utcnow().isoformat()  # Use current time as fallback
+                    formatted_results.append({
+                        "id": row[0],
+                        "title": row[1],
+                        "match_preview": row[2][:200] + "..." if len(row[2]) > 200 else row[2],
+                        "timestamp": "", # Full transcripts might not have a single timestamp
+                        "type": "full_transcript"
                     })
-                
-                return results
-                
+                    
+                return formatted_results
         except Exception as e:
             logger.error(f"Error searching transcripts: {str(e)}")
-            raise
+            return []
+
+    async def save_jira_config(self, url: str, email: str, api_token: str = None, default_project_key: str = None, default_issue_type: str = None):
+        """Save Jira configuration
         
+        Args:
+            url: Jira URL (required)
+            email: Jira email (required)
+            api_token: API token. If None, empty, or '********', keeps existing token (required for new configs)
+            default_project_key: Optional default project key
+            default_issue_type: Optional default issue type
+        """
+        if not url or not email:
+            raise ValueError("URL and Email are required")
+            
+        try:
+            async with self._get_connection() as conn:
+                await conn.execute("BEGIN TRANSACTION")
+                try:
+                    # Check if config exists
+                    cursor = await conn.execute("SELECT id, api_token FROM jira_settings WHERE id = '1'")
+                    existing = await cursor.fetchone()
+                    
+                    # If api_token is masked, empty, or None, use existing token
+                    if existing and (not api_token or api_token.strip() == '' or api_token == '********'):
+                        existing_token = existing[1] if len(existing) > 1 else None
+                        if existing_token:
+                            api_token = existing_token
+                            logger.info("Using existing API token (new token not provided or masked)")
+                        else:
+                            raise ValueError("API Token is required for new configuration")
+                    elif not existing and (not api_token or api_token.strip() == '' or api_token == '********'):
+                        raise ValueError("API Token is required for new configuration")
+                    
+                    if existing:
+                        await conn.execute("""
+                            UPDATE jira_settings 
+                            SET url = ?, email = ?, api_token = ?, default_project_key = ?, default_issue_type = ?
+                            WHERE id = '1'
+                        """, (url, email, api_token, default_project_key, default_issue_type))
+                    else:
+                        await conn.execute("""
+                            INSERT INTO jira_settings (id, url, email, api_token, default_project_key, default_issue_type)
+                            VALUES ('1', ?, ?, ?, ?, ?)
+                        """, (url, email, api_token, default_project_key, default_issue_type))
+                    
+                    await conn.commit()
+                    logger.info("Successfully saved Jira configuration")
+                except Exception as e:
+                    await conn.rollback()
+                    raise e
+        except Exception as e:
+            logger.error(f"Error saving Jira config: {str(e)}")
+            raise
+
+    async def get_jira_config(self):
+        """Get Jira configuration"""
+        try:
+            async with self._get_connection() as conn:
+                cursor = await conn.execute("""
+                    SELECT url, email, api_token, default_project_key, default_issue_type 
+                    FROM jira_settings WHERE id = '1'
+                """)
+                row = await cursor.fetchone()
+                if row:
+                    return {
+                        "url": row[0],
+                        "email": row[1],
+                        "api_token": row[2],
+                        "default_project_key": row[3],
+                        "default_issue_type": row[4]
+                    }
+                return None
+        except Exception as e:
+            logger.error(f"Error getting Jira config: {str(e)}")
+            raise
+                
+
     async def delete_api_key(self, provider: str):
         """Delete the API key"""
         provider_list = ["openai", "claude", "groq", "ollama"]

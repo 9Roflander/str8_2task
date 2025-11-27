@@ -194,14 +194,22 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     console.log(`📊 Starting polling for meeting ${meetingId}, process ${processId}`);
 
     let pollCount = 0;
-    const MAX_POLLS = 120; // 10 minutes at 5-second intervals
+    const POLL_INTERVAL_MS = 5000; // 5 seconds
+    const MAX_POLLS = 360; // 30 minutes at 5-second intervals (360 * 5 = 1800 seconds = 30 minutes)
+    const WARNING_THRESHOLD = 180; // Warn after 15 minutes
 
     const pollInterval = setInterval(async () => {
       pollCount++;
+      const elapsedMinutes = Math.floor((pollCount * POLL_INTERVAL_MS) / 60000);
 
-      // Timeout safety: Stop after 10 minutes
+      // Warn user if taking longer than expected
+      if (pollCount === WARNING_THRESHOLD) {
+        console.warn(`⏱️ Summary generation is taking longer than expected (${elapsedMinutes} minutes). Still processing...`);
+      }
+
+      // Timeout safety: Stop after 30 minutes
       if (pollCount >= MAX_POLLS) {
-        console.warn(`⏱️ Polling timeout for ${meetingId} after ${MAX_POLLS} iterations`);
+        console.warn(`⏱️ Polling timeout for ${meetingId} after ${MAX_POLLS} iterations (${elapsedMinutes} minutes)`);
         clearInterval(pollInterval);
         setActiveSummaryPolls(prev => {
           const next = new Map(prev);
@@ -210,7 +218,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
         });
         onUpdate({
           status: 'error',
-          error: 'Summary generation timed out after 10 minutes. Please try again or check your model configuration.'
+          error: `Summary generation timed out after ${elapsedMinutes} minutes. This may happen with very long transcripts or slow models. Please try again or check your model configuration.`
         });
         return;
       }
@@ -219,14 +227,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
           meetingId: meetingId,
         }) as any;
 
-        console.log(`📊 Polling update for ${meetingId}:`, result.status);
+        const elapsedMinutes = Math.floor((pollCount * POLL_INTERVAL_MS) / 60000);
+        console.log(`📊 Polling update for ${meetingId} (${elapsedMinutes}m elapsed):`, result.status);
 
         // Call the update callback with result
         onUpdate(result);
 
         // Stop polling if completed, error, failed, or idle (after initial processing)
         if (result.status === 'completed' || result.status === 'error' || result.status === 'failed') {
-          console.log(`✅ Polling completed for ${meetingId}, status: ${result.status}`);
+          console.log(`✅ Polling completed for ${meetingId}, status: ${result.status} (took ${elapsedMinutes} minutes)`);
           clearInterval(pollInterval);
           setActiveSummaryPolls(prev => {
             const next = new Map(prev);
@@ -235,13 +244,18 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
           });
         } else if (result.status === 'idle' && pollCount > 1) {
           // If we get 'idle' after polling started, process completed/disappeared
-          console.log(`✅ Process completed or not found for ${meetingId}, stopping poll`);
+          console.log(`✅ Process completed or not found for ${meetingId}, stopping poll (took ${elapsedMinutes} minutes)`);
           clearInterval(pollInterval);
           setActiveSummaryPolls(prev => {
             const next = new Map(prev);
             next.delete(meetingId);
             return next;
           });
+        } else if (result.status === 'processing' || result.status === 'summarizing') {
+          // Log progress for long-running operations
+          if (pollCount % 12 === 0) { // Every minute
+            console.log(`⏳ Summary still processing for ${meetingId} (${elapsedMinutes} minutes elapsed)...`);
+          }
         }
       } catch (error) {
         console.error(`❌ Polling error for ${meetingId}:`, error);
@@ -257,7 +271,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
           return next;
         });
       }
-    }, 5000); // Poll every 5 seconds
+    }, POLL_INTERVAL_MS); // Poll every 5 seconds
 
     setActiveSummaryPolls(prev => new Map(prev).set(meetingId, pollInterval));
   }, [activeSummaryPolls]);

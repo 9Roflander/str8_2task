@@ -135,17 +135,17 @@ pub fn validate_and_parse_template(json_content: &str) -> Result<Template, Strin
 
 /// List all available template identifiers
 ///
-/// Returns a combined list of:
-/// - Built-in template IDs
-/// - Bundled template IDs (from app resources)
-/// - Custom template IDs (from user's data directory)
+/// Returns only "standard_meeting" - other templates are disabled
+/// - Built-in template IDs (filtered to only standard_meeting)
+/// - Bundled template IDs (filtered to only standard_meeting)
+/// - Custom template IDs (filtered to only standard_meeting)
 pub fn list_template_ids() -> Vec<String> {
     let mut ids: Vec<String> = defaults::list_builtin_template_ids()
         .into_iter()
         .map(|s| s.to_string())
         .collect();
 
-    // Add bundled templates if directory is set
+    // Add bundled templates if directory is set, but only standard_meeting
     if let Ok(bundled_dir_lock) = BUNDLED_TEMPLATES_DIR.read() {
         if let Some(bundled_dir) = bundled_dir_lock.as_ref() {
             if bundled_dir.exists() {
@@ -155,7 +155,8 @@ pub fn list_template_ids() -> Vec<String> {
                             if let Some(filename) = entry.file_name().to_str() {
                                 if filename.ends_with(".json") {
                                     let id = filename.trim_end_matches(".json").to_string();
-                                    if !ids.contains(&id) {
+                                    // Only include standard_meeting
+                                    if id == "standard_meeting" && !ids.contains(&id) {
                                         ids.push(id);
                                     }
                                 }
@@ -170,7 +171,7 @@ pub fn list_template_ids() -> Vec<String> {
         }
     }
 
-    // Add custom templates if directory exists
+    // Add custom templates if directory exists, but only standard_meeting
     if let Some(custom_dir) = get_custom_templates_dir() {
         if custom_dir.exists() {
             match std::fs::read_dir(&custom_dir) {
@@ -179,7 +180,8 @@ pub fn list_template_ids() -> Vec<String> {
                         if let Some(filename) = entry.file_name().to_str() {
                             if filename.ends_with(".json") {
                                 let id = filename.trim_end_matches(".json").to_string();
-                                if !ids.contains(&id) {
+                                // Only include standard_meeting
+                                if id == "standard_meeting" && !ids.contains(&id) {
                                     ids.push(id);
                                 }
                             }
@@ -223,11 +225,11 @@ mod tests {
 
     #[test]
     fn test_get_builtin_template() {
-        let template = get_template("daily_standup");
+        let template = get_template("standard_meeting");
         assert!(template.is_ok());
 
         let template = template.unwrap();
-        assert_eq!(template.name, "Daily Standup");
+        assert_eq!(template.name, "Standard Meeting Notes");
         assert!(!template.sections.is_empty());
     }
 
@@ -240,8 +242,8 @@ mod tests {
     #[test]
     fn test_list_template_ids() {
         let ids = list_template_ids();
-        assert!(ids.contains(&"daily_standup".to_string()));
         assert!(ids.contains(&"standard_meeting".to_string()));
+        assert!(!ids.contains(&"daily_standup".to_string())); // Disabled
     }
 
     #[test]

@@ -116,9 +116,28 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
         let _ = app_for_error.emit("recording-error", error.user_message());
     });
 
+    // Load recording preferences to get app filter
+    let filter_apps = {
+        #[cfg(target_os = "macos")]
+        {
+            use crate::audio::recording_preferences::load_recording_preferences;
+            match load_recording_preferences(&app).await {
+                Ok(prefs) => prefs.filtered_apps.clone(),
+                Err(e) => {
+                    warn!("Failed to load recording preferences for app filter: {}", e);
+                    None
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            None // App filtering only supported on macOS
+        }
+    };
+
     // Start recording with default devices
     let transcription_receiver = manager
-        .start_recording_with_defaults()
+        .start_recording_with_defaults(filter_apps)
         .await
         .map_err(|e| format!("Failed to start recording: {}", e))?;
 
@@ -271,9 +290,28 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
         let _ = app_for_error.emit("recording-error", error.user_message());
     });
 
+    // Load recording preferences to get app filter
+    let filter_apps = {
+        #[cfg(target_os = "macos")]
+        {
+            use crate::audio::recording_preferences::load_recording_preferences;
+            match load_recording_preferences(&app).await {
+                Ok(prefs) => prefs.filtered_apps.clone(),
+                Err(e) => {
+                    warn!("Failed to load recording preferences for app filter: {}", e);
+                    None
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            None // App filtering only supported on macOS
+        }
+    };
+
     // Start recording with specified devices
     let transcription_receiver = manager
-        .start_recording(mic_device, system_device)
+        .start_recording(mic_device, system_device, filter_apps)
         .await
         .map_err(|e| format!("Failed to start recording: {}", e))?;
 

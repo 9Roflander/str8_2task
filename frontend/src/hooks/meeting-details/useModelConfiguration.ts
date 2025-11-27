@@ -25,7 +25,8 @@ export function useModelConfiguration({ serverAddress }: UseModelConfigurationPr
       try {
         console.log('🔄 Fetching model configuration from database...');
         const data = await invokeTauri('api_get_model_config', {}) as any;
-        if (data && data.provider !== null) {
+        // Handle both null/undefined and empty object cases
+        if (data && data !== null && data.provider !== null && data.provider !== undefined && data.provider !== '') {
           console.log('✅ Loaded model config from database:', {
             provider: data.provider,
             model: data.model,
@@ -44,12 +45,42 @@ export function useModelConfiguration({ serverAddress }: UseModelConfigurationPr
               console.error('Failed to fetch API key:', err);
             }
           }
+          // Ensure model field is not empty
+          if (!data.model || data.model.trim() === '') {
+            console.warn('⚠️ Model config has empty model field, setting default based on provider');
+            if (data.provider === 'ollama') {
+              data.model = 'llama3.2:latest';
+            } else if (data.provider === 'claude') {
+              data.model = 'claude-3-5-sonnet-latest';
+            } else if (data.provider === 'groq') {
+              data.model = 'llama-3.3-70b-versatile';
+            } else if (data.provider === 'gemini') {
+              data.model = 'gemini-1.5-pro';
+            }
+          }
           setModelConfig(data);
         } else {
           console.warn('⚠️ No model config found in database, using defaults');
+          // Set sensible defaults when no config exists
+          setModelConfig({
+            provider: 'ollama',
+            model: 'llama3.2:latest',
+            whisperModel: 'large-v3',
+            apiKey: null,
+            ollamaEndpoint: null
+          });
         }
       } catch (error) {
         console.error('❌ Failed to fetch model config:', error);
+        // Set defaults on error to ensure app continues to work
+        console.warn('⚠️ Setting default model config due to error');
+        setModelConfig({
+          provider: 'ollama',
+          model: 'llama3.2:latest',
+          whisperModel: 'large-v3',
+          apiKey: null,
+          ollamaEndpoint: null
+        });
       } finally {
         setIsLoading(false);
         console.log('✅ Model configuration loading complete');

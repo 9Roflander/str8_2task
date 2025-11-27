@@ -1,7 +1,7 @@
 use tauri::{command, AppHandle, Emitter, State};
 use crate::audio::{
     start_system_audio_capture, list_system_audio_devices, check_system_audio_permissions,
-    SystemAudioDetector, SystemAudioEvent, new_system_audio_callback
+    SystemAudioDetector, SystemAudioEvent, new_system_audio_callback, list_system_audio_using_apps
 };
 use std::sync::{Arc, Mutex};
 use anyhow::Result;
@@ -94,6 +94,23 @@ pub async fn get_system_audio_monitoring_status(
         .map_err(|e| format!("Failed to acquire detector lock: {}", e))?;
 
     Ok(detector_guard.is_some())
+}
+
+/// Get list of applications currently using system audio
+#[command]
+pub async fn get_apps_using_audio() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let apps = list_system_audio_using_apps();
+        Ok(apps)
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        // For non-macOS platforms, return empty for now
+        // Can be extended for Windows/Linux later
+        Ok(vec![])
+    }
 }
 
 /// Initialize the system audio detector state in Tauri app

@@ -354,8 +354,9 @@ impl MacOSSystemAudioDetector {
     }
 }
 
+/// Get list of applications currently using system audio
 #[cfg(target_os = "macos")]
-fn list_system_audio_using_apps() -> Vec<String> {
+pub fn list_system_audio_using_apps() -> Vec<String> {
     match ca::System::processes() {
         Ok(processes) => {
             let mut apps = Vec::new();

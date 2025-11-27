@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
+const isDev = process.env.NODE_ENV !== 'production';
+
 const nextConfig = {
   reactStrictMode: false, // Disabled for BlockNote compatibility
-  output: 'export',
+  // Only use static export for production builds, not dev mode
+  ...(isDev ? {} : { output: 'export' }),
   images: {
     unoptimized: true,
   },

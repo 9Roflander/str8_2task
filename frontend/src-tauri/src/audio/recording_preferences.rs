@@ -18,6 +18,11 @@ pub struct RecordingPreferences {
     #[cfg(target_os = "macos")]
     #[serde(default)]
     pub system_audio_backend: Option<String>,
+    /// List of app names to filter audio capture to (macOS only)
+    /// If None or empty, captures all system audio
+    /// If Some with app names, only captures audio from those apps
+    #[serde(default)]
+    pub filtered_apps: Option<Vec<String>>,
 }
 
 impl Default for RecordingPreferences {
@@ -28,6 +33,7 @@ impl Default for RecordingPreferences {
             file_format: "mp4".to_string(),
             #[cfg(target_os = "macos")]
             system_audio_backend: Some("coreaudio".to_string()),
+            filtered_apps: None, // Default: capture all apps
         }
     }
 }

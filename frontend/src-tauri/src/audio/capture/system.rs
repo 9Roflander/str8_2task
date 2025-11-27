@@ -43,7 +43,7 @@ impl SystemAudioCapture {
         {
             info!("Starting Core Audio system capture (macOS)");
             // Use Core Audio tap for system audio capture
-            let core_audio = CoreAudioCapture::new()?;
+            let core_audio = CoreAudioCapture::new(None)?;
             let core_audio_stream = core_audio.stream()?;
             let sample_rate = core_audio_stream.sample_rate();
 

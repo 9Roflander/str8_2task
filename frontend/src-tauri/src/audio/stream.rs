@@ -44,10 +44,11 @@ impl AudioStream {
         state: Arc<RecordingState>,
         device_type: DeviceType,
         recording_sender: Option<mpsc::UnboundedSender<super::recording_state::AudioChunk>>,
+        filter_apps: Option<Vec<String>>,
     ) -> Result<Self> {
         // Get current backend from global config
         let backend_type = get_current_backend();
-        Self::create_with_backend(device, state, device_type, recording_sender, backend_type).await
+        Self::create_with_backend(device, state, device_type, recording_sender, backend_type, filter_apps).await
     }
 
     /// Create a new audio stream with explicit backend selection
@@ -57,6 +58,7 @@ impl AudioStream {
         device_type: DeviceType,
         recording_sender: Option<mpsc::UnboundedSender<super::recording_state::AudioChunk>>,
         backend_type: AudioCaptureBackend,
+        filter_apps: Option<Vec<String>>,
     ) -> Result<Self> {
         info!("🎵 Stream: Creating audio stream for device: {} with backend: {:?}, device_type: {:?}",
               device.name, backend_type, device_type);
@@ -84,7 +86,7 @@ impl AudioStream {
         #[cfg(target_os = "macos")]
         if use_core_audio {
             info!("🎵 Stream: Using Core Audio backend (cidre) for system audio");
-            return Self::create_core_audio_stream(device, state, device_type, recording_sender).await;
+            return Self::create_core_audio_stream(device, state, device_type, recording_sender, filter_apps).await;
         }
 
         // Default path: use CPAL
@@ -99,6 +101,7 @@ impl AudioStream {
         let backend_name = "CPAL";
 
         info!("🎵 Stream: Using CPAL backend ({}) for device: {}", backend_name, device.name);
+        // Note: CPAL doesn't support app filtering, so filter_apps is ignored here
         Self::create_cpal_stream(device, state, device_type, recording_sender).await
     }
 
@@ -147,12 +150,13 @@ impl AudioStream {
         state: Arc<RecordingState>,
         device_type: DeviceType,
         recording_sender: Option<mpsc::UnboundedSender<super::recording_state::AudioChunk>>,
+        filter_apps: Option<Vec<String>>,
     ) -> Result<Self> {
         info!("🔊 Stream: Creating Core Audio stream for device: {}", device.name);
 
-        // Create Core Audio capture
-        info!("🔊 Stream: Calling CoreAudioCapture::new()...");
-        let capture_impl = CoreAudioCapture::new()
+        // Create Core Audio capture with app filtering
+        info!("🔊 Stream: Calling CoreAudioCapture::new() with filter_apps: {:?}...", filter_apps);
+        let capture_impl = CoreAudioCapture::new(filter_apps)
             .map_err(|e| {
                 error!("❌ Stream: CoreAudioCapture::new() failed: {}", e);
                 anyhow::anyhow!("Failed to create Core Audio capture: {}", e)
@@ -363,6 +367,7 @@ impl AudioStreamManager {
         microphone_device: Option<Arc<AudioDevice>>,
         system_device: Option<Arc<AudioDevice>>,
         recording_sender: Option<mpsc::UnboundedSender<super::recording_state::AudioChunk>>,
+        filter_apps: Option<Vec<String>>,
     ) -> Result<()> {
         use super::capture::get_current_backend;
         let backend = get_current_backend();
@@ -371,7 +376,7 @@ impl AudioStreamManager {
         // Start microphone stream
         if let Some(mic_device) = microphone_device {
             info!("🎤 Creating microphone stream: {} (always uses CPAL)", mic_device.name);
-            match AudioStream::create(mic_device.clone(), self.state.clone(), DeviceType::Microphone, recording_sender.clone()).await {
+            match AudioStream::create(mic_device.clone(), self.state.clone(), DeviceType::Microphone, recording_sender.clone(), None).await {
                 Ok(stream) => {
                     self.state.set_microphone_device(mic_device);
                     self.microphone_stream = Some(stream);
@@ -389,7 +394,7 @@ impl AudioStreamManager {
         // Start system audio stream
         if let Some(sys_device) = system_device {
             info!("🔊 Creating system audio stream: {} (backend: {:?})", sys_device.name, backend);
-            match AudioStream::create(sys_device.clone(), self.state.clone(), DeviceType::System, recording_sender.clone()).await {
+            match AudioStream::create(sys_device.clone(), self.state.clone(), DeviceType::System, recording_sender.clone(), filter_apps.clone()).await {
                 Ok(stream) => {
                     self.state.set_system_device(sys_device);
                     self.system_stream = Some(stream);

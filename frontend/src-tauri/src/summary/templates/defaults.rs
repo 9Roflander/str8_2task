@@ -22,21 +22,22 @@ pub fn get_builtin_templates() -> Vec<(&'static str, &'static str)> {
 /// Get a built-in template by identifier
 ///
 /// # Arguments
-/// * `id` - Template identifier (e.g., "daily_standup", "standard_meeting")
+/// * `id` - Template identifier (only "standard_meeting" is available)
 ///
 /// # Returns
 /// The template JSON content if found, None otherwise
+/// Only returns standard_meeting - other templates are disabled
 pub fn get_builtin_template(id: &str) -> Option<&'static str> {
     match id {
-        "daily_standup" => Some(DAILY_STANDUP),
         "standard_meeting" => Some(STANDARD_MEETING),
-        _ => None,
+        _ => None, // All other templates are disabled
     }
 }
 
 /// List all built-in template identifiers
+/// Only returns standard_meeting - other templates are disabled
 pub fn list_builtin_template_ids() -> Vec<&'static str> {
-    vec!["daily_standup", "standard_meeting"]
+    vec!["standard_meeting"]
 }
 
 #[cfg(test)]
@@ -58,8 +59,8 @@ mod tests {
 
     #[test]
     fn test_get_builtin_template() {
-        assert!(get_builtin_template("daily_standup").is_some());
         assert!(get_builtin_template("standard_meeting").is_some());
+        assert!(get_builtin_template("daily_standup").is_none()); // Disabled
         assert!(get_builtin_template("nonexistent").is_none());
     }
 }

@@ -84,7 +84,7 @@ export function SummaryPanel({
   const isSummaryLoading = summaryStatus === 'processing' || summaryStatus === 'summarizing' || summaryStatus === 'regenerating';
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
+    <div className="flex-1 min-w-0 flex flex-col bg-white overflow-y-auto">
       {/* Title area */}
       <div className="p-4 border-b border-gray-200">
         {/* <EditableTitle

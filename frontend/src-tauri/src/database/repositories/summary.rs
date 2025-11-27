@@ -82,6 +82,20 @@ impl SummaryProcessesRepository {
         .await
     }
 
+    /// Check if a process is currently running (PENDING or processing)
+    pub async fn is_process_running(
+        pool: &SqlitePool,
+        meeting_id: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let result: Option<(String,)> = sqlx::query_as(
+            "SELECT status FROM summary_processes WHERE meeting_id = ? AND status IN ('PENDING', 'processing')"
+        )
+        .bind(meeting_id)
+        .fetch_optional(pool)
+        .await?;
+        Ok(result.is_some())
+    }
+
     pub async fn create_or_reset_process(
         pool: &SqlitePool,
         meeting_id: &str,
@@ -90,6 +104,23 @@ impl SummaryProcessesRepository {
             "Creating or resetting summary process for meeting_id: {}",
             meeting_id
         );
+        
+        // Check if a process is already running
+        let is_running = Self::is_process_running(pool, meeting_id).await?;
+        if is_running {
+            log_info!(
+                "⚠️ Process already running for meeting_id: {}, cancelling and resetting",
+                meeting_id
+            );
+            // Cancel any existing process by marking it as failed with a cancellation message
+            // This prevents race conditions where old background tasks overwrite new results
+            let _ = Self::update_process_failed(
+                pool,
+                meeting_id,
+                "Process cancelled: New regeneration started",
+            ).await;
+        }
+        
         let now = Utc::now();
         sqlx::query(
             r#"
@@ -135,6 +166,25 @@ impl SummaryProcessesRepository {
         .bind(now)
         .bind(chunk_count)
         .bind(processing_time)
+        .bind(meeting_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn update_process_processing(
+        pool: &SqlitePool,
+        meeting_id: &str,
+    ) -> Result<(), sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query(
+            r#"
+            UPDATE summary_processes
+            SET status = 'processing', updated_at = ?
+            WHERE meeting_id = ?
+            "#,
+        )
+        .bind(now)
         .bind(meeting_id)
         .execute(pool)
         .await?;

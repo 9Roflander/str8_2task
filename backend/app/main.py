@@ -6,10 +6,11 @@ import uvicorn
 from typing import Optional, List
 import logging
 from dotenv import load_dotenv
-from db import DatabaseManager
+from .db import DatabaseManager
 import json
 from threading import Lock
-from transcript_processor import TranscriptProcessor
+from .transcript_processor import TranscriptProcessor
+from .jira_service import JiraService
 import time
 
 # Load environment variables
@@ -107,6 +108,57 @@ class TranscriptRequest(BaseModel):
     overlap: Optional[int] = 1000
     custom_prompt: Optional[str] = "Generate a summary of the meeting transcript."
 
+    overlap: Optional[int] = 1000
+    custom_prompt: Optional[str] = "Generate a summary of the meeting transcript."
+
+class JiraConfig(BaseModel):
+    url: str
+    email: str
+    api_token: Optional[str] = None  # Optional - if None, empty, or '********', keeps existing token
+    default_project_key: Optional[str] = None
+    default_issue_type: Optional[str] = None
+
+class JiraTaskCreate(BaseModel):
+    project_key: str
+    summary: str
+    description: str
+    issue_type: str
+    assignee: Optional[str] = None  # accountId for Jira Cloud
+    labels: Optional[List[str]] = None
+    duedate: Optional[str] = None  # Due date in YYYY-MM-DD format
+    start_date: Optional[str] = None  # Start date in YYYY-MM-DD format
+
+class JiraAnalysisRequest(BaseModel):
+    meeting_id: str
+    model: str = "openai"
+    model_name: str = "gpt-4o"
+    # Optional raw transcript text; when provided, the backend will use this
+    # directly instead of looking up transcript data in the database. This is
+    # used by the Tauri desktop app which keeps its own transcript store.
+    text: Optional[str] = None
+    # Project key for context-aware task generation (required for enhanced generation)
+    project_key: str
+
+class JiraIssueUpdate(BaseModel):
+    """Model for updating Jira issue fields"""
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[str] = None
+    assignee: Optional[str] = None  # accountId for Jira Cloud, or "-1" to unassign
+    labels: Optional[List[str]] = None  # List of label strings
+    duedate: Optional[str] = None  # Due date in YYYY-MM-DD format
+    customfield_10020: Optional[str] = None  # Start date (common custom field ID)
+    # Note: Team, Development, Author are likely custom fields - will need field IDs
+
+class JiraCommentCreate(BaseModel):
+    """Model for adding a comment to a Jira issue"""
+    body: str
+
+class JiraTransitionRequest(BaseModel):
+    """Model for transitioning a Jira issue to a new status"""
+    transition_id: str
+    comment: Optional[str] = None
+
 class SummaryProcessor:
     """Handles the processing of summaries in a thread-safe way"""
     def __init__(self):
@@ -188,6 +240,7 @@ async def get_meeting(meeting_id: str):
             raise HTTPException(status_code=404, detail="Meeting not found")
         return meeting
     except HTTPException:
+        # Preserve explicit HTTP errors (e.g. 404) without wrapping them
         raise
     except Exception as e:
         logger.error(f"Error getting meeting: {str(e)}", exc_info=True)
@@ -212,6 +265,9 @@ async def delete_meeting(data: DeleteMeetingRequest):
             return {"message": "Meeting deleted successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to delete meeting")
+    except HTTPException:
+        # Allow explicit HTTPException (like the 500 above) to propagate
+        raise
     except Exception as e:
         logger.error(f"Error deleting meeting: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -628,6 +684,312 @@ async def search_transcripts(request: SearchRequest):
         return JSONResponse(content=results)
     except Exception as e:
         logger.error(f"Error searching transcripts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/save-jira-config")
+async def save_jira_config(config: JiraConfig):
+    """Save Jira configuration"""
+    try:
+        await db.save_jira_config(
+            config.url, 
+            config.email, 
+            config.api_token,  # Will use existing token if None, empty, or '********'
+            config.default_project_key, 
+            config.default_issue_type
+        )
+        
+        # Get the actual API token for connection test (in case it was masked)
+        saved_config = await db.get_jira_config()
+        api_token_for_test = saved_config.get("api_token") if saved_config else config.api_token
+        
+        # Test connection only if we have a valid token
+        if api_token_for_test and api_token_for_test != "********":
+            jira = JiraService(config.url, config.email, api_token_for_test)
+            if jira.test_connection():
+                return {"status": "success", "message": "Jira configuration saved and connection verified"}
+            else:
+                return JSONResponse(
+                    status_code=400, 
+                    content={"status": "warning", "message": "Configuration saved but connection failed. Please check your credentials."}
+                )
+        else:
+            # If token was masked/not provided, just confirm save without testing
+            return {"status": "success", "message": "Jira configuration saved (connection not tested - token unchanged)"}
+    except Exception as e:
+        logger.error(f"Error saving Jira config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-jira-config")
+async def get_jira_config():
+    """Get Jira configuration"""
+    try:
+        config = await db.get_jira_config()
+        if config:
+            # Mask API token for security
+            if config.get("api_token"):
+                config["api_token"] = "********"
+            return config
+        return {}
+    except Exception as e:
+        logger.error(f"Error getting Jira config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/create-jira-task")
+async def create_jira_task(task: JiraTaskCreate):
+    """Create a task in Jira"""
+    try:
+        # Get credentials from DB
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        result = jira.create_issue(
+            project_key=task.project_key,
+            summary=task.summary,
+            description=task.description,
+            issue_type=task.issue_type,
+            assignee=task.assignee,
+            labels=task.labels,
+            duedate=task.duedate,
+            start_date=task.start_date
+        )
+        return result
+    except HTTPException:
+        # Preserve 4xx/5xx HTTP errors we intentionally raise
+        raise
+    except Exception as e:
+        logger.error(f"Error creating Jira task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-jira-projects")
+async def get_jira_projects():
+    """Get available Jira projects"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        projects = jira.get_projects()
+        return projects
+    except HTTPException:
+        # Allow 4xx responses (like missing Jira config) to pass through unchanged
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Jira projects: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-jira-issue-types/{project_key}")
+async def get_jira_issue_types(project_key: str):
+    """Get issue types for a project"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        types = jira.get_issue_types(project_key)
+        return types
+    except HTTPException:
+        # Preserve explicit HTTP errors like 400 when config is missing
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Jira issue types: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-jira-project-context/{project_key}")
+async def get_jira_project_context(project_key: str):
+    """Get comprehensive project context for LLM task generation"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        context = jira.get_project_context(project_key)
+        return context
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Jira project context for {project_key}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-jira-tasks")
+async def analyze_jira_tasks(request: JiraAnalysisRequest):
+    """Analyze transcript and suggest Jira tasks with project context"""
+    logger.info(
+        "analyze-jira-tasks received "
+        f"meeting_id={request.meeting_id}, "
+        f"model={request.model}, "
+        f"model_name={request.model_name}, "
+        f"project_key={request.project_key}, "
+        f"has_text={bool(request.text and request.text.strip())}"
+    )
+
+    # Prefer raw text when provided (desktop app path)
+    raw_text = request.text or ""
+    stripped_text = raw_text.strip()
+    if stripped_text:
+        logger.info(
+            f"analyze-jira-tasks using raw text for meeting_id={request.meeting_id}, "
+            f"text_length={len(stripped_text)}"
+        )
+        text = stripped_text
+    else:
+        # Fallback: Get transcript data from backend database
+        logger.info(
+            f"analyze-jira-tasks fetching transcript from DB for meeting_id={request.meeting_id}"
+        )
+        transcript_data = await db.get_transcript_data(request.meeting_id)
+        if not transcript_data or not transcript_data.get("transcript_text"):
+            # Explicit 404 when the meeting exists but has no transcript
+            logger.warning(
+                f"Transcript not found for meeting_id={request.meeting_id} "
+                f"(transcript_data={bool(transcript_data)})"
+            )
+            # Let FastAPI return a real 404, not a wrapped 500
+            raise HTTPException(status_code=404, detail="Transcript not found")
+
+        text = transcript_data["transcript_text"]
+
+    # Fetch project context for enhanced LLM generation
+    project_context = None
+    try:
+        config = await db.get_jira_config()
+        if config:
+            jira = JiraService(config["url"], config["email"], config["api_token"])
+            project_context = jira.get_project_context(request.project_key)
+            logger.info(f"Fetched project context for {request.project_key}")
+    except Exception as e:
+        logger.warning(f"Failed to fetch project context, proceeding without it: {e}")
+
+    # Run analysis with better error handling
+    try:
+        tasks = await processor.transcript_processor.extract_jira_tasks(
+            text,
+            request.model,
+            request.model_name,
+            project_context=project_context
+        )
+        
+        return {"tasks": tasks}
+    except ValueError as ve:
+        # Model format/validation errors - return 400 with helpful message
+        logger.warning(f"Model validation error in Jira analysis: {str(ve)}")
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        # Re-raise HTTPExceptions (e.g., 404) without wrapping them in 500
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing Jira tasks: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze Jira tasks: {str(e)}",
+        )
+
+@app.get("/search-jira-issues")
+async def search_jira_issues(jql: str, max_results: int = 50):
+    """Search for Jira issues using JQL query"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        result = jira.search_issues(jql, max_results)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching Jira issues: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-jira-issue/{issue_key}")
+async def get_jira_issue(issue_key: str):
+    """Get full details of a specific Jira issue"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        result = jira.get_issue(issue_key)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Jira issue {issue_key}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update-jira-issue/{issue_key}")
+async def update_jira_issue(issue_key: str, update: JiraIssueUpdate):
+    """Update fields of an existing Jira issue"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        # Convert Pydantic model to dict, excluding None values
+        fields = {k: v for k, v in update.model_dump().items() if v is not None}
+        result = jira.update_issue(issue_key, fields)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating Jira issue {issue_key}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/add-jira-comment/{issue_key}")
+async def add_jira_comment(issue_key: str, comment: JiraCommentCreate):
+    """Add a comment to a Jira issue"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        result = jira.add_comment(issue_key, comment.body)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding comment to Jira issue {issue_key}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-jira-transitions/{issue_key}")
+async def get_jira_transitions(issue_key: str):
+    """Get available workflow transitions for a Jira issue"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        result = jira.get_transitions(issue_key)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting transitions for Jira issue {issue_key}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/transition-jira-issue/{issue_key}")
+async def transition_jira_issue(issue_key: str, transition: JiraTransitionRequest):
+    """Execute a workflow transition on a Jira issue"""
+    try:
+        config = await db.get_jira_config()
+        if not config:
+            raise HTTPException(status_code=400, detail="Jira configuration not found")
+            
+        jira = JiraService(config["url"], config["email"], config["api_token"])
+        result = jira.transition_issue(issue_key, transition.transition_id, transition.comment)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error transitioning Jira issue {issue_key}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.on_event("shutdown")

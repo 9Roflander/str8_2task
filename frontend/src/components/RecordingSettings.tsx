@@ -3,6 +3,7 @@ import { Switch } from '@/components/ui/switch';
 import { FolderOpen } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { DeviceSelection, SelectedDevices } from '@/components/DeviceSelection';
+import { AppSelector } from '@/components/AppSelector';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
 
@@ -12,6 +13,7 @@ export interface RecordingPreferences {
   file_format: string;
   preferred_mic_device: string | null;
   preferred_system_device: string | null;
+  filtered_apps?: string[] | null;
 }
 
 interface RecordingSettingsProps {
@@ -24,7 +26,8 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     auto_save: true,
     file_format: 'mp4',
     preferred_mic_device: null,
-    preferred_system_device: null
+    preferred_system_device: null,
+    filtered_apps: null
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -246,6 +249,30 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
             />
           </div>
         </div>
+
+        {/* App Filter (macOS only) */}
+        {typeof window !== 'undefined' && navigator.userAgent.includes('Mac') && (
+          <div className="border-t pt-6">
+            <h4 className="text-base font-medium text-gray-900 mb-4">System Audio Filter</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Filter system audio capture to specific apps. Only audio from selected apps will be recorded. Leave empty to capture all system audio.
+            </p>
+
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <AppSelector
+                selectedApps={preferences.filtered_apps || []}
+                onAppsChange={async (apps) => {
+                  const newPreferences = {
+                    ...preferences,
+                    filtered_apps: apps.length > 0 ? apps : null
+                  };
+                  setPreferences(newPreferences);
+                  await savePreferences(newPreferences);
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

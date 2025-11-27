@@ -97,7 +97,7 @@ pub fn trigger_system_audio_permission() -> Result<()> {
 
     // Try to create a Core Audio capture - this automatically triggers the permission dialog
     // if NSAudioCaptureUsageDescription is present in Info.plist
-    match crate::audio::capture::CoreAudioCapture::new() {
+    match crate::audio::capture::CoreAudioCapture::new(None) {
         Ok(capture) => {
             info!("✅ Core Audio capture created, attempting to create stream...");
 

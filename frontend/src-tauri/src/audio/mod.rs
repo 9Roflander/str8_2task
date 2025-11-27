@@ -55,7 +55,7 @@ pub use capture::{
 // Export system audio detection functionality
 pub use system_detector::{
     SystemAudioDetector, SystemAudioEvent, SystemAudioCallback,
-    new_system_audio_callback
+    new_system_audio_callback, list_system_audio_using_apps
 };
 
 // Export system audio commands
