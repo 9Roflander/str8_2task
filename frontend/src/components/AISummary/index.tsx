@@ -656,7 +656,7 @@ export const AISummary = ({ summary, status, error, onSummaryChange, onRegenerat
   }
 
   return (
-    <div className="relative max-h-full overflow-y-auto">
+    <div className="relative w-full h-full min-w-0 overflow-y-auto overflow-x-auto">
 
       
       {selectedBlocks.length > 1 && (
