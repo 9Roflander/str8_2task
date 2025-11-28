@@ -157,11 +157,33 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
         })
         .collect();
     
-    // If no questions passed filter, try to use the first raw question anyway (very permissive fallback)
+    // CRITICAL FIX: If no questions passed filter, use the first raw question anyway (very permissive fallback)
+    // This ensures we always show something if the LLM generated questions
     if filtered_questions.is_empty() && questions_before_filter > 0 {
         warn!("⚠️ [Question Gen] All questions filtered out, but we have {} raw questions. Using first one anyway.", questions_before_filter);
-        // This shouldn't happen often, but if it does, we'll use the first question
-        // The frontend will handle display
+        // Get the first raw question from the original list (before filtering)
+        // We need to re-parse since we consumed the iterator
+        let trimmed = response.trim();
+        let json_start = trimmed.find('[').unwrap_or(0);
+        let json_end = trimmed.rfind(']').map(|i| i + 1).unwrap_or(trimmed.len());
+        let json_candidate = &trimmed[json_start..json_end];
+        
+        if let Ok(parsed) = serde_json::from_str::<Vec<String>>(json_candidate) {
+            if let Some(first_q) = parsed.first() {
+                let trimmed_q = first_q.trim();
+                if !trimmed_q.is_empty() {
+                    info!("✅ [Question Gen] Using fallback question: '{}'", &trimmed_q[..trimmed_q.len().min(100)]);
+                    filtered_questions.push(trimmed_q.to_string());
+                }
+            }
+        } else {
+            // Last resort: extract from text
+            let extracted = extract_questions_from_text(&response);
+            if let Some(first_q) = extracted.first() {
+                info!("✅ [Question Gen] Using extracted fallback question: '{}'", &first_q[..first_q.len().min(100)]);
+                filtered_questions.push(first_q.clone());
+            }
+        }
     }
     
     // Convert to Question structs
