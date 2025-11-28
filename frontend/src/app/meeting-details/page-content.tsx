@@ -182,8 +182,8 @@ export default function PageContent({
             </button>
           </div>
 
-          <div className="flex-1 overflow-hidden relative">
-            <div className={`absolute inset-0 ${activeTab === 'summary' ? 'block' : 'hidden'}`}>
+          <div className="flex-1 overflow-hidden relative flex">
+            <div className={`flex-1 min-w-0 ${activeTab === 'summary' ? 'flex' : 'hidden'}`}>
               <SummaryPanel
                 meeting={meeting}
                 meetingTitle={meetingData.meetingTitle}
