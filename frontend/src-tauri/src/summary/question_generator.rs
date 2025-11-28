@@ -81,25 +81,13 @@ fn save_question_debug(
             return;
         }
     };
-        
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        
-        let mut file = match OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-        {
-            Ok(f) => f,
-            Err(e) => {
-                warn!("⚠️ [Question Gen] Failed to open debug file: {}", e);
-                return;
-            }
-        };
-        
-        if let Err(e) = writeln!(file, "\n{}", "=".repeat(80)) {
+    
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    if let Err(e) = writeln!(file, "\n{}", "=".repeat(80)) {
             warn!("⚠️ [Question Gen] Failed to write to debug file: {}", e);
             return;
         }
