@@ -4,11 +4,172 @@ use crate::database::repositories::setting::SettingsRepository;
 use sqlx::SqlitePool;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Question {
     pub text: String,
     pub context: String, // The transcript chunk that triggered the question
+}
+
+/// Save questions and inputs to a text file for debugging
+fn save_question_debug(
+    transcript_chunk: &str,
+    recent_context: &str,
+    prompt: &str,
+    llm_response: &str,
+    questions: &[Question],
+) {
+    // Try to save to a debug file - try multiple locations
+    let mut path = None;
+    
+    // Try current directory first
+    if let Ok(mut current_path) = std::env::current_dir() {
+        current_path.push("question_debug.txt");
+        if OpenOptions::new().create(true).append(true).open(&current_path).is_ok() {
+            path = Some(current_path);
+        }
+    }
+    
+    // Try home directory if current dir failed
+    if path.is_none() {
+        if let Some(home) = std::env::var_os("HOME") {
+            let mut home_path = PathBuf::from(home);
+            home_path.push("question_debug.txt");
+            if OpenOptions::new().create(true).append(true).open(&home_path).is_ok() {
+                path = Some(home_path);
+            }
+        }
+    }
+    
+    // Try temp directory as last resort
+    if path.is_none() {
+        if let Ok(temp) = std::env::var("TMPDIR") {
+            let mut temp_path = PathBuf::from(temp);
+            temp_path.push("question_debug.txt");
+            if OpenOptions::new().create(true).append(true).open(&temp_path).is_ok() {
+                path = Some(temp_path);
+            }
+        } else if let Ok(temp) = std::env::var("TEMP") {
+            let mut temp_path = PathBuf::from(temp);
+            temp_path.push("question_debug.txt");
+            if OpenOptions::new().create(true).append(true).open(&temp_path).is_ok() {
+                path = Some(temp_path);
+            }
+        }
+    }
+    
+    let path = match path {
+        Some(p) => p,
+        None => {
+            warn!("⚠️ [Question Gen] Could not open debug file in any location");
+            return;
+        }
+    };
+    
+    let mut file = match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(f) => f,
+        Err(e) => {
+            warn!("⚠️ [Question Gen] Failed to open debug file: {}", e);
+            return;
+        }
+    };
+        
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        let mut file = match OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
+            Ok(f) => f,
+            Err(e) => {
+                warn!("⚠️ [Question Gen] Failed to open debug file: {}", e);
+                return;
+            }
+        };
+        
+        if let Err(e) = writeln!(file, "\n{}", "=".repeat(80)) {
+            warn!("⚠️ [Question Gen] Failed to write to debug file: {}", e);
+            return;
+        }
+        
+        if let Err(e) = writeln!(file, "TIMESTAMP: {}", timestamp) {
+            warn!("⚠️ [Question Gen] Failed to write timestamp: {}", e);
+            return;
+        }
+        
+        if let Err(e) = writeln!(file, "\n--- TRANSCRIPT CHUNK ({} chars) ---", transcript_chunk.len()) {
+            warn!("⚠️ [Question Gen] Failed to write transcript chunk header: {}", e);
+            return;
+        }
+        if let Err(e) = writeln!(file, "{}", transcript_chunk) {
+            warn!("⚠️ [Question Gen] Failed to write transcript chunk: {}", e);
+            return;
+        }
+        
+        if let Err(e) = writeln!(file, "\n--- RECENT CONTEXT ({} chars) ---", recent_context.len()) {
+            warn!("⚠️ [Question Gen] Failed to write recent context header: {}", e);
+            return;
+        }
+        if let Err(e) = writeln!(file, "{}", recent_context) {
+            warn!("⚠️ [Question Gen] Failed to write recent context: {}", e);
+            return;
+        }
+        
+        if let Err(e) = writeln!(file, "\n--- PROMPT SENT TO LLM ({} chars) ---", prompt.len()) {
+            warn!("⚠️ [Question Gen] Failed to write prompt header: {}", e);
+            return;
+        }
+        if let Err(e) = writeln!(file, "{}", prompt) {
+            warn!("⚠️ [Question Gen] Failed to write prompt: {}", e);
+            return;
+        }
+        
+        if let Err(e) = writeln!(file, "\n--- LLM RAW RESPONSE ({} chars) ---", llm_response.len()) {
+            warn!("⚠️ [Question Gen] Failed to write LLM response header: {}", e);
+            return;
+        }
+        if let Err(e) = writeln!(file, "{}", llm_response) {
+            warn!("⚠️ [Question Gen] Failed to write LLM response: {}", e);
+            return;
+        }
+        
+        if let Err(e) = writeln!(file, "\n--- GENERATED QUESTIONS ({} total) ---", questions.len()) {
+            warn!("⚠️ [Question Gen] Failed to write questions header: {}", e);
+            return;
+        }
+        if questions.is_empty() {
+            if let Err(e) = writeln!(file, "NO QUESTIONS GENERATED") {
+                warn!("⚠️ [Question Gen] Failed to write no questions message: {}", e);
+                return;
+            }
+        } else {
+            for (idx, q) in questions.iter().enumerate() {
+                if let Err(e) = writeln!(file, "{}. {}", idx + 1, q.text) {
+                    warn!("⚠️ [Question Gen] Failed to write question {}: {}", idx + 1, e);
+                    return;
+                }
+            }
+        }
+        
+        if let Err(e) = writeln!(file, "\n{}\n", "=".repeat(80)) {
+            warn!("⚠️ [Question Gen] Failed to write separator: {}", e);
+            return;
+        }
+        
+        info!("✅ [Question Gen] Saved debug info to: {:?}", path);
+    }
 }
 
 /// Generate clarifying questions from transcript chunks
@@ -18,7 +179,16 @@ pub async fn generate_questions(
     transcript_chunk: &str,
     recent_context: &str, // Last few chunks for context
 ) -> Result<Vec<Question>, String> {
+    // Log what we received
+    info!("🔍 [Question Gen] Received transcript_chunk: {} chars, recent_context: {} chars", 
+          transcript_chunk.len(), recent_context.len());
+    info!("🔍 [Question Gen] transcript_chunk preview: {}", 
+          &transcript_chunk[..transcript_chunk.len().min(200)]);
+    info!("🔍 [Question Gen] recent_context preview: {}", 
+          &recent_context[..recent_context.len().min(200)]);
+    
     if transcript_chunk.trim().is_empty() {
+        warn!("⚠️ [Question Gen] transcript_chunk is empty, returning empty questions");
         return Ok(vec![]);
     }
 
@@ -196,6 +366,10 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
 
     info!("📊 [Question Gen] Filtering results: {} before, {} after", questions_before_filter, questions.len());
     
+    // Log the full prompt being sent
+    info!("🔍 [Question Gen] Full prompt length: {} chars", prompt.len());
+    info!("🔍 [Question Gen] Prompt preview: {}", &prompt[..prompt.len().min(500)]);
+    
     if !questions.is_empty() {
         info!("✅ [Question Gen] Generated {} clarifying question(s)", questions.len());
         for (idx, q) in questions.iter().enumerate() {
@@ -204,6 +378,15 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
     } else {
         info!("ℹ️ [Question Gen] No questions generated (all filtered out or LLM returned empty)");
     }
+    
+    // Save to debug file
+    save_question_debug(
+        transcript_chunk,
+        recent_context,
+        &prompt,
+        &response,
+        &questions,
+    );
 
     Ok(questions)
 }
