@@ -46,9 +46,10 @@ function getSummaryAsText(summary: Summary | null): string {
       }
       // Handle array format (e.g., key_points: string[])
       else if (Array.isArray(section)) {
-        if (section.length > 0) {
+        const sectionArray = section as unknown[];
+        if (sectionArray.length > 0) {
           sections.push(`## ${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`);
-          for (const item of section) {
+          for (const item of sectionArray) {
             sections.push(`- ${item}`);
           }
           sections.push('');

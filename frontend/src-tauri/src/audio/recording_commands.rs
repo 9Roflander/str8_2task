@@ -122,7 +122,10 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
         {
             use crate::audio::recording_preferences::load_recording_preferences;
             match load_recording_preferences(&app).await {
-                Ok(prefs) => prefs.filtered_apps.clone(),
+                Ok(prefs) => {
+                    info!("🔍 DEBUG: Loaded preferences, filtered_apps: {:?}", prefs.filtered_apps);
+                    prefs.filtered_apps.clone()
+                },
                 Err(e) => {
                     warn!("Failed to load recording preferences for app filter: {}", e);
                     None
@@ -134,6 +137,8 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
             None // App filtering only supported on macOS
         }
     };
+    
+    info!("🔍 DEBUG: About to call start_recording_with_defaults with filter_apps: {:?}", filter_apps);
 
     // Start recording with default devices
     let transcription_receiver = manager
@@ -854,6 +859,41 @@ pub async fn is_recording_paused() -> bool {
     let manager_guard = RECORDING_MANAGER.lock().unwrap();
     if let Some(manager) = manager_guard.as_ref() {
         manager.is_paused()
+    } else {
+        false
+    }
+}
+
+/// Toggle microphone mute state
+#[tauri::command]
+pub async fn toggle_microphone_mute<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
+    info!("Toggling microphone mute");
+
+    // Check if currently recording
+    if !IS_RECORDING.load(Ordering::SeqCst) {
+        return Err("No recording is currently active".to_string());
+    }
+
+    // Access the recording manager and toggle mute
+    let manager_guard = RECORDING_MANAGER.lock().unwrap();
+    if let Some(manager) = manager_guard.as_ref() {
+        let is_muted = manager.toggle_microphone_mute();
+        
+        // Emit event to frontend
+        let _ = app.emit("microphone-mute-changed", is_muted);
+        
+        Ok(is_muted)
+    } else {
+        Err("Recording manager not available".to_string())
+    }
+}
+
+/// Get microphone mute state
+#[tauri::command]
+pub async fn is_microphone_muted() -> bool {
+    let manager_guard = RECORDING_MANAGER.lock().unwrap();
+    if let Some(manager) = manager_guard.as_ref() {
+        manager.is_microphone_muted()
     } else {
         false
     }

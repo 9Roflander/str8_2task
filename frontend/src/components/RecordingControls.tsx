@@ -3,7 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { appDataDir } from '@tauri-apps/api/path';
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { Play, Pause, Square, Mic, AlertCircle, X } from 'lucide-react';
+import { Play, Pause, Square, Mic, MicOff, AlertCircle, X } from 'lucide-react';
 import { ProcessRequest, SummaryResponse } from '@/types/summary';
 import { listen } from '@tauri-apps/api/event';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -49,6 +49,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const MIN_RECORDING_DURATION = 2000; // 2 seconds minimum recording time
   const [transcriptionErrors, setTranscriptionErrors] = useState(0);
   const [isValidatingModel, setIsValidatingModel] = useState(false);
@@ -87,9 +88,10 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
     console.log('Current isRecording state:', isRecording);
 
     setIsValidatingModel(true);
-    setShowPlayback(false);
-    setTranscript(''); // Clear any previous transcript
-    setSpeechDetected(false); // Reset speech detection on new recording
+      setShowPlayback(false);
+      setTranscript(''); // Clear any previous transcript
+      setSpeechDetected(false); // Reset speech detection on new recording
+      setIsMuted(false); // Reset mute state on new recording
 
     try {
       // Generate meeting title here to ensure it's available for the backend call
@@ -128,6 +130,14 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
 
       // Call onRecordingStart after successful recording start
       onRecordingStart();
+      
+      // Check initial mute state
+      try {
+        const muted = await invoke<boolean>('is_microphone_muted');
+        setIsMuted(muted);
+      } catch (error) {
+        console.error('Failed to get initial mute state:', error);
+      }
     } catch (error) {
       console.error('Failed to start recording:', error);
       console.error('Error details:', {
@@ -271,6 +281,19 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
     }
   }, [isRecording, isPaused, isResuming]);
 
+  const handleToggleMute = useCallback(async () => {
+    if (!isRecording) return;
+
+    try {
+      const muted = await invoke<boolean>('toggle_microphone_mute');
+      setIsMuted(muted);
+      console.log('Microphone mute toggled:', muted);
+    } catch (error) {
+      console.error('Failed to toggle microphone mute:', error);
+      alert('Failed to toggle microphone mute. Please check the console for details.');
+    }
+  }, [isRecording]);
+
   useEffect(() => {
     return () => {
       // Cleanup on unmount if needed
@@ -352,6 +375,12 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           setIsPaused(false);
         });
 
+        // Microphone mute changed listener
+        const muteChangedUnsubscribe = await listen('microphone-mute-changed', (event) => {
+          console.log('microphone-mute-changed event received:', event);
+          setIsMuted(event.payload as boolean);
+        });
+
         // Speech detected listener - for UX feedback when VAD detects speech
         const speechDetectedUnsubscribe = await listen('speech-detected', (event) => {
           console.log('speech-detected event received:', event);
@@ -363,7 +392,8 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           transcriptionErrorUnsubscribe,
           pausedUnsubscribe,
           resumedUnsubscribe,
-          speechDetectedUnsubscribe
+          speechDetectedUnsubscribe,
+          muteChangedUnsubscribe
         ];
         console.log('Recording event listeners set up successfully');
       } catch (error) {
@@ -492,6 +522,30 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{isPaused ? 'Resume recording' : 'Pause recording'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => {
+                              Analytics.trackButtonClick('toggle_microphone_mute', 'recording_controls');
+                              handleToggleMute();
+                            }}
+                            disabled={isStopping || isPausing || isResuming}
+                            className={`w-10 h-10 flex items-center justify-center ${
+                              isStopping || isPausing || isResuming
+                                ? 'bg-gray-200 border-2 border-gray-300 text-gray-400'
+                                : isMuted
+                                ? 'bg-red-500 border-2 border-red-600 text-white hover:bg-red-600'
+                                : 'bg-white border-2 border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                            } rounded-full transition-colors relative`}
+                          >
+                            {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{isMuted ? 'Unmute microphone' : 'Mute microphone'}</p>
                         </TooltipContent>
                       </Tooltip>
 

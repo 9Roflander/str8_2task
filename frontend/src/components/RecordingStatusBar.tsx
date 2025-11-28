@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface RecordingStatusBarProps {
   isPaused?: boolean;
@@ -12,32 +12,52 @@ export const RecordingStatusBar: React.FC<RecordingStatusBarProps> = ({ isPaused
   // Get recording duration from backend-synced context (in seconds)
   const { activeDuration, isRecording } = useRecordingState();
 
-  // Local state for live timer display
+  // Local state for smooth, monotonic timer display
   const [displaySeconds, setDisplaySeconds] = useState(0);
+
+  // Remember the last backend sync (duration/ timestamp)
+  const lastSyncRef = useRef<{ duration: number; timestamp: number } | null>(null);
 
   // Sync with backend duration when it changes (handles refresh/navigation)
   useEffect(() => {
     if (activeDuration !== null) {
-      // Round to nearest second to avoid decimal issues
-      setDisplaySeconds(Math.floor(activeDuration));
+      lastSyncRef.current = {
+        duration: activeDuration,
+        timestamp: performance.now(),
+      };
+      setDisplaySeconds(activeDuration);
+    } else {
+      lastSyncRef.current = null;
+      setDisplaySeconds(0);
     }
   }, [activeDuration]);
 
-  // Live timer that increments every second when recording and not paused
+  // Live timer that uses requestAnimationFrame for smooth, non-jittery increments
   useEffect(() => {
-    // Stop timer if not recording or if paused
-    if (!isRecording || isPaused) return;
+    if (!isRecording || isPaused) {
+      return;
+    }
 
-    const interval = setInterval(() => {
-      setDisplaySeconds(prev => prev + 1);
-    }, 1000);
+    let rafId: number;
 
-    return () => clearInterval(interval);
+    const tick = () => {
+      const syncPoint = lastSyncRef.current;
+      if (syncPoint) {
+        const elapsed = (performance.now() - syncPoint.timestamp) / 1000;
+        const nextValue = syncPoint.duration + elapsed;
+        setDisplaySeconds(prev => (nextValue < prev ? prev : nextValue));
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [isRecording, isPaused]);
 
   const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const clamped = Math.max(0, Math.floor(seconds));
+    const mins = Math.floor(clamped / 60);
+    const secs = clamped % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 

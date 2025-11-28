@@ -3,8 +3,14 @@ use crate::audio::{
     start_system_audio_capture, list_system_audio_devices, check_system_audio_permissions,
     SystemAudioDetector, SystemAudioEvent, new_system_audio_callback, list_system_audio_using_apps
 };
+use crate::audio::recording_preferences::get_default_recordings_folder;
 use std::sync::{Arc, Mutex};
 use anyhow::Result;
+use futures_util::StreamExt;
+use std::time::{Duration, Instant};
+use std::fs::File;
+use std::io::{Write, Seek, SeekFrom};
+use log::{info, warn};
 
 // Global state for system audio detector
 type SystemAudioDetectorState = Arc<Mutex<Option<SystemAudioDetector>>>;
@@ -19,6 +25,101 @@ pub async fn start_system_audio_capture_command() -> Result<String, String> {
         }
         Err(e) => Err(format!("Failed to start system audio capture: {}", e))
     }
+}
+
+/// Diagnostic: Record 5 seconds of system audio from ALL programs (no filtering) and save as WAV
+#[command]
+pub async fn diagnostic_record_all_programs_5s() -> Result<String, String> {
+    let mut stream = start_system_audio_capture()
+        .await
+        .map_err(|e| format!("Failed to start system capture: {}", e))?;
+
+    let sample_rate = stream.sample_rate();
+    if sample_rate == 0 {
+        return Err("Invalid sample rate from system audio stream".to_string());
+    }
+
+    info!("🔎 Diagnostic capture started (global, no filtering), sample_rate={}", sample_rate);
+
+    // Collect ~5 seconds of audio
+    let duration = Duration::from_secs(5);
+    let start_time = Instant::now();
+    let mut samples: Vec<f32> = Vec::with_capacity((sample_rate as usize) * 5);
+
+    while start_time.elapsed() < duration {
+        match stream.next().await {
+            Some(s) => samples.push(s),
+            None => break,
+        }
+    }
+
+    if samples.is_empty() {
+        warn!("No samples captured during diagnostic window");
+    }
+
+    // Compute RMS
+    let rms = if !samples.is_empty() {
+        let sum_sq: f32 = samples.iter().map(|v| v * v).sum();
+        (sum_sq / samples.len() as f32).sqrt()
+    } else {
+        0.0
+    };
+    info!("📈 Diagnostic RMS over {} samples: {:.4}", samples.len(), rms);
+
+    // Write simple mono 32-bit float WAV
+    let out_dir = get_default_recordings_folder();
+    if let Err(e) = std::fs::create_dir_all(&out_dir) {
+        return Err(format!("Failed to create recordings folder: {}", e));
+    }
+
+    let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let out_path = out_dir.join(format!("Diagnostic_5s_{}.wav", timestamp));
+
+    write_wav_f32_mono(&out_path, sample_rate, &samples)
+        .map_err(|e| format!("Failed to write WAV: {}", e))?;
+
+    info!("✅ Diagnostic recording saved: {}", out_path.display());
+    Ok(out_path.to_string_lossy().to_string())
+}
+
+/// Minimal WAV writer for mono f32 (IEEE float) data
+fn write_wav_f32_mono(path: &std::path::Path, sample_rate: u32, samples: &[f32]) -> Result<()> {
+    let mut file = File::create(path)?;
+
+    let num_channels: u16 = 1;
+    let bits_per_sample: u16 = 32; // f32
+    let byte_rate: u32 = sample_rate * num_channels as u32 * (bits_per_sample as u32 / 8);
+    let block_align: u16 = num_channels * (bits_per_sample / 8);
+    // RIFF header
+    file.write_all(b"RIFF")?;
+    file.write_all(&[0u8; 4])?; // Placeholder for chunk size
+    file.write_all(b"WAVE")?;
+    // fmt chunk
+    file.write_all(b"fmt ")?;
+    file.write_all(&(16u32).to_le_bytes())?; // Subchunk1Size for PCM
+    file.write_all(&(3u16).to_le_bytes())?; // AudioFormat 3 = IEEE float
+    file.write_all(&num_channels.to_le_bytes())?;
+    file.write_all(&sample_rate.to_le_bytes())?;
+    file.write_all(&byte_rate.to_le_bytes())?;
+    file.write_all(&block_align.to_le_bytes())?;
+    file.write_all(&bits_per_sample.to_le_bytes())?;
+    // data chunk
+    file.write_all(b"data")?;
+    let data_size: u32 = (samples.len() * 4) as u32;
+    file.write_all(&data_size.to_le_bytes())?;
+
+    // Sample data
+    for &s in samples {
+        file.write_all(&s.to_le_bytes())?;
+    }
+
+    // Patch RIFF chunk size (file size - 8)
+    let file_len = file.metadata()?.len();
+    let riff_size = (file_len as u32).saturating_sub(8);
+    file.seek(SeekFrom::Start(4))?;
+    file.write_all(&riff_size.to_le_bytes())?;
+
+    Ok(())
 }
 
 /// List available system audio devices

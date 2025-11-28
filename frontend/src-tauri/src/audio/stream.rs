@@ -394,13 +394,21 @@ impl AudioStreamManager {
         // Start system audio stream
         if let Some(sys_device) = system_device {
             info!("🔊 Creating system audio stream: {} (backend: {:?})", sys_device.name, backend);
+            info!("🔍 DEBUG: filter_apps passed to start_streams: {:?}", filter_apps);
             #[cfg(target_os = "macos")]
             {
                 if backend == super::capture::AudioCaptureBackend::CoreAudio {
-                    info!("🎧 Using Core Audio tap for system audio - this captures audio from ALL apps");
+                    info!("🎧 Using Core Audio tap for system audio");
+                    if filter_apps.is_some() && !filter_apps.as_ref().unwrap().is_empty() {
+                        info!("   📌 App filtering enabled for: {:?}", filter_apps);
+                    } else {
+                        info!("   📌 App filtering disabled - capturing ALL system audio");
+                    }
                     info!("📍 If audio is silent, check: System Settings → Privacy & Security → Audio Capture");
                 } else {
                     info!("🖥️ Using ScreenCaptureKit for system audio - requires Screen Recording permission");
+                    warn!("⚠️ WARNING: App filtering is NOT supported with ScreenCaptureKit backend!");
+                    warn!("⚠️ filter_apps will be IGNORED. Switch to CoreAudio backend for app filtering.");
                     info!("📍 If audio is silent, check: System Settings → Privacy & Security → Screen Recording");
                 }
             }

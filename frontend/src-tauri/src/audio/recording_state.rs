@@ -96,6 +96,7 @@ pub struct RecordingState {
     // Core recording state
     is_recording: AtomicBool,
     is_paused: AtomicBool,
+    is_muted: AtomicBool,  // NEW: Microphone mute state
     is_reconnecting: AtomicBool,  // NEW: Attempting to reconnect to device
 
     // Audio devices
@@ -131,6 +132,7 @@ impl RecordingState {
         Arc::new(Self {
             is_recording: AtomicBool::new(false),
             is_paused: AtomicBool::new(false),
+            is_muted: AtomicBool::new(false),
             is_reconnecting: AtomicBool::new(false),
             microphone_device: Mutex::new(None),
             system_device: Mutex::new(None),
@@ -161,6 +163,7 @@ impl RecordingState {
     pub fn stop_recording(&self) {
         self.is_recording.store(false, Ordering::SeqCst);
         self.is_paused.store(false, Ordering::SeqCst);
+        self.is_muted.store(false, Ordering::SeqCst); // Reset mute state when stopping
         // Clear pause tracking when stopping
         *self.pause_start.lock().unwrap() = None;
         // CRITICAL: Clear audio sender to close the pipeline channel
@@ -211,6 +214,33 @@ impl RecordingState {
 
     pub fn is_active(&self) -> bool {
         self.is_recording() && !self.is_paused()
+    }
+
+    // Microphone mute control
+    pub fn mute_microphone(&self) {
+        self.is_muted.store(true, Ordering::SeqCst);
+        log::info!("Microphone muted");
+    }
+
+    pub fn unmute_microphone(&self) {
+        self.is_muted.store(false, Ordering::SeqCst);
+        log::info!("Microphone unmuted");
+    }
+
+    pub fn toggle_microphone_mute(&self) -> bool {
+        let was_muted = self.is_muted.load(Ordering::SeqCst);
+        self.is_muted.store(!was_muted, Ordering::SeqCst);
+        let now_muted = !was_muted;
+        if now_muted {
+            log::info!("Microphone muted");
+        } else {
+            log::info!("Microphone unmuted");
+        }
+        now_muted
+    }
+
+    pub fn is_muted(&self) -> bool {
+        self.is_muted.load(Ordering::SeqCst)
     }
 
     // Reconnection state management
@@ -413,6 +443,7 @@ impl Default for RecordingState {
         Self {
             is_recording: AtomicBool::new(false),
             is_paused: AtomicBool::new(false),
+            is_muted: AtomicBool::new(false),
             is_reconnecting: AtomicBool::new(false),
             microphone_device: Mutex::new(None),
             system_device: Mutex::new(None),

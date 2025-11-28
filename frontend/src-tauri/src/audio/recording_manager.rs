@@ -68,6 +68,21 @@ impl RecordingManager {
     ) -> Result<mpsc::UnboundedReceiver<AudioChunk>> {
         info!("Starting recording manager");
 
+        // CRITICAL FIX: Automatically switch to CoreAudio backend when app filtering is requested
+        // App filtering only works with CoreAudio backend, not ScreenCaptureKit
+        #[cfg(target_os = "macos")]
+        if filter_apps.is_some() && !filter_apps.as_ref().unwrap().is_empty() {
+            use super::capture::{AudioCaptureBackend, get_current_backend, set_current_backend};
+            let current_backend = get_current_backend();
+            if current_backend != AudioCaptureBackend::CoreAudio {
+                warn!("⚠️ App filtering requested but backend is {:?}. Switching to CoreAudio backend for app filtering support.", current_backend);
+                set_current_backend(AudioCaptureBackend::CoreAudio);
+                info!("✅ Backend switched to CoreAudio for app filtering");
+            } else {
+                info!("✅ Using CoreAudio backend (required for app filtering)");
+            }
+        }
+
         // Set up transcription channel
         let (transcription_sender, transcription_receiver) = mpsc::unbounded_channel::<AudioChunk>();
 
@@ -165,6 +180,34 @@ impl RecordingManager {
     /// User still hears audio via Bluetooth (playback), but recording captures
     /// via stable wired path for best quality.
     pub async fn start_recording_with_defaults(&mut self, filter_apps: Option<Vec<String>>) -> Result<mpsc::UnboundedReceiver<AudioChunk>> {
+        // DEBUG: Log filter_apps value to diagnose the issue
+        info!("🔍 DEBUG: start_recording_with_defaults called with filter_apps: {:?}", filter_apps);
+        
+        // CRITICAL FIX: Automatically switch to CoreAudio backend when app filtering is requested
+        // App filtering only works with CoreAudio backend, not ScreenCaptureKit
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(ref apps) = filter_apps {
+                if !apps.is_empty() {
+                    info!("🔍 DEBUG: filter_apps is Some with {} apps: {:?}", apps.len(), apps);
+                    use super::capture::{AudioCaptureBackend, get_current_backend, set_current_backend};
+                    let current_backend = get_current_backend();
+                    info!("🔍 DEBUG: Current backend: {:?}", current_backend);
+                    if current_backend != AudioCaptureBackend::CoreAudio {
+                        warn!("⚠️ App filtering requested but backend is {:?}. Switching to CoreAudio backend for app filtering support.", current_backend);
+                        set_current_backend(AudioCaptureBackend::CoreAudio);
+                        info!("✅ Backend switched to CoreAudio for app filtering");
+                    } else {
+                        info!("✅ Using CoreAudio backend (required for app filtering)");
+                    }
+                } else {
+                    warn!("⚠️ filter_apps is Some but empty, not switching backend");
+                }
+            } else {
+                warn!("⚠️ filter_apps is None - app filtering will not work!");
+            }
+        }
+
         #[cfg(target_os = "macos")]
         {
             info!("🎙️ [macOS] Starting recording with smart device selection (Bluetooth override enabled)");
@@ -360,6 +403,14 @@ impl RecordingManager {
     /// Check if recording is currently paused
     pub fn is_paused(&self) -> bool {
         self.state.is_paused()
+    }
+
+    pub fn toggle_microphone_mute(&self) -> bool {
+        self.state.toggle_microphone_mute()
+    }
+
+    pub fn is_microphone_muted(&self) -> bool {
+        self.state.is_muted()
     }
 
     /// Check if recording is active (recording and not paused)

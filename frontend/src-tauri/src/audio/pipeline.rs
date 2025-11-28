@@ -169,11 +169,13 @@ impl AudioMixerRingBuffer {
 
 /// Simple audio mixer without aggressive ducking
 /// Combines mic + system audio with basic clipping prevention
-struct ProfessionalAudioMixer;
+struct ProfessionalAudioMixer {
+    state: Arc<RecordingState>,
+}
 
 impl ProfessionalAudioMixer {
-    fn new(_sample_rate: u32) -> Self {
-        Self
+    fn new(_sample_rate: u32, state: Arc<RecordingState>) -> Self {
+        Self { state }
     }
 
     fn mix_window(&mut self, mic_window: &[f32], sys_window: &[f32]) -> Vec<f32> {
@@ -183,8 +185,15 @@ impl ProfessionalAudioMixer {
 
         // Professional mixing with soft scaling to prevent distortion
         // Uses proportional scaling instead of hard clamping to avoid artifacts
+        // Check if microphone is muted
+        let is_muted = self.state.is_muted();
+        
         for i in 0..max_len {
-            let mic = mic_window.get(i).copied().unwrap_or(0.0);
+            let mic = if is_muted {
+                0.0  // Zero out microphone audio when muted
+            } else {
+                mic_window.get(i).copied().unwrap_or(0.0)
+            };
             let sys = sys_window.get(i).copied().unwrap_or(0.0);
 
             // Pre-scale system audio to 70% to leave headroom
@@ -193,7 +202,7 @@ impl ProfessionalAudioMixer {
             let sys_scaled = sys * 1.0;
             let _mic_scaled = mic * 0.8;  // Reserved for future mic scaling
 
-            // Sum without ducking - mic stays at full volume, system slightly reduced
+            // Sum without ducking - mic stays at full volume (or zero if muted), system slightly reduced
             let sum = mic + sys_scaled;
 
             // CRITICAL FIX: Soft scaling prevents distortion artifacts
@@ -764,7 +773,7 @@ impl AudioPipeline {
 
         // Initialize professional audio mixing components
         let ring_buffer = AudioMixerRingBuffer::new(sample_rate);
-        let mixer = ProfessionalAudioMixer::new(sample_rate);
+        let mixer = ProfessionalAudioMixer::new(sample_rate, state.clone());
 
         // Note: target_chunk_duration_ms is ignored - VAD controls segmentation now
         let _ = target_chunk_duration_ms;

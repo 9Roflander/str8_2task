@@ -119,13 +119,25 @@ pub async fn load_recording_preferences<R: Runtime>(
         RecordingPreferences::default()
     };
 
-    // Ensure backend is synced with current global config (for backward compatibility)
+    // CRITICAL FIX: Set backend from preferences when loading
+    // This ensures the backend matches what's saved in preferences
     #[cfg(target_os = "macos")]
     {
-        let backend = crate::audio::capture::get_current_backend();
-        // Only override if not set in preferences
-        if prefs.system_audio_backend.is_none() {
+        if let Some(backend_str) = &prefs.system_audio_backend {
+            if let Some(backend) = AudioCaptureBackend::from_string(backend_str) {
+                let current_backend = crate::audio::capture::get_current_backend();
+                if current_backend != backend {
+                    info!("🔄 Loading backend from preferences: {:?} (was: {:?})", backend, current_backend);
+                    crate::audio::capture::set_current_backend(backend);
+                } else {
+                    info!("✅ Backend already matches preferences: {:?}", backend);
+                }
+            }
+        } else {
+            // No backend in preferences, sync current backend to preferences
+            let backend = crate::audio::capture::get_current_backend();
             prefs.system_audio_backend = Some(backend.to_string());
+            info!("ℹ️ No backend in preferences, using current: {:?}", backend);
         }
     }
 
