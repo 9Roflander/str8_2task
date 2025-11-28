@@ -157,6 +157,8 @@ fn save_question_debug(
     }
     
     info!("✅ [Question Gen] Saved debug info to: {:?}", path);
+    info!("📁 [Question Gen] Debug file location: {}", path.display());
+    warn!("📁 [Question Gen] ⚠️ IMPORTANT: Question debug file saved to: {}", path.display());
 }
 
 /// Generate clarifying questions from transcript chunks
