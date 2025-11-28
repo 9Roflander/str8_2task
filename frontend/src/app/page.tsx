@@ -508,22 +508,43 @@ export default function Home() {
                 type: typeof questions
               });
               
+              // CRITICAL FIX: Handle different response formats
+              let questionText: string | null = null;
+              
               if (Array.isArray(questions) && questions.length > 0) {
-                console.log('✅ [Question Flow] First question object:', questions[0]);
-                console.log('📝 [Question Flow] Question text:', questions[0].text);
+                const firstQuestion = questions[0];
+                console.log('✅ [Question Flow] First question object:', firstQuestion);
                 
-                if (questions[0].text) {
-                  console.log('🎯 [Question Flow] Setting currentQuestion to:', questions[0].text);
-                  setCurrentQuestion(questions[0].text);
+                // Handle Question object with .text property
+                if (firstQuestion && typeof firstQuestion === 'object' && 'text' in firstQuestion) {
+                  questionText = firstQuestion.text;
+                  console.log('📝 [Question Flow] Question text from object:', questionText);
+                } 
+                // Handle string array
+                else if (typeof firstQuestion === 'string') {
+                  questionText = firstQuestion;
+                  console.log('📝 [Question Flow] Question text from string:', questionText);
+                }
+                // Handle other formats
+                else {
+                  console.warn('⚠️ [Question Flow] Unexpected question format:', firstQuestion);
+                  // Try to extract text anyway
+                  questionText = String(firstQuestion);
+                }
+                
+                if (questionText && questionText.trim().length > 0) {
+                  console.log('🎯 [Question Flow] Setting currentQuestion to:', questionText);
+                  setCurrentQuestion(questionText);
                   console.log('✅ [Question Flow] Question set successfully');
                 } else {
-                  console.warn('⚠️ [Question Flow] Question object missing .text property:', questions[0]);
+                  console.warn('⚠️ [Question Flow] Question text is empty or invalid');
                 }
               } else {
                 console.log('ℹ️ [Question Flow] No questions to display:', {
                   isArray: Array.isArray(questions),
                   length: Array.isArray(questions) ? questions.length : 'N/A',
-                  isEmpty: Array.isArray(questions) && questions.length === 0
+                  isEmpty: Array.isArray(questions) && questions.length === 0,
+                  questions
                 });
               }
             }).catch(err => {
@@ -606,12 +627,15 @@ export default function Home() {
 
   // Sync transcript history and meeting name from backend on reload
   // This fixes the issue where reloading during active recording causes state desync
+  // CRITICAL FIX: Sync continuously when recording is active, not just once
   useEffect(() => {
+    let syncInterval: NodeJS.Timeout | null = null;
+    
     const syncFromBackend = async () => {
-      // Only sync if recording is active but we have no local transcripts
-      if (recordingState.isRecording && transcripts.length === 0) {
+      // Sync if recording is active
+      if (recordingState.isRecording) {
         try {
-          console.log('[Reload Sync] Recording active after reload, syncing transcript history...');
+          console.log('[Reload Sync] Syncing transcript history from backend...');
 
           // Fetch transcript history from backend
           const history = await invoke<any[]>('get_transcript_history');
@@ -631,15 +655,47 @@ export default function Home() {
             duration: segment.duration,
           }));
 
-          setTranscripts(formattedTranscripts);
-          console.log('[Reload Sync] ✅ Transcript history synced successfully');
+          // CRITICAL FIX: Merge with existing transcripts instead of replacing
+          // This ensures we don't lose transcripts that came via the listener
+          setTranscripts(prev => {
+            // Create a map of existing transcripts by sequence_id
+            const existingMap = new Map(prev.map(t => [t.sequence_id, t]));
+            
+            // Add new transcripts from backend that we don't already have
+            formattedTranscripts.forEach(newT => {
+              if (!existingMap.has(newT.sequence_id)) {
+                existingMap.set(newT.sequence_id, newT);
+              }
+            });
+            
+            // Convert back to array and sort by sequence_id
+            const merged = Array.from(existingMap.values()).sort((a, b) => 
+              (a.sequence_id || 0) - (b.sequence_id || 0)
+            );
+            
+            if (merged.length !== prev.length) {
+              console.log(`[Reload Sync] Merged transcripts: ${prev.length} -> ${merged.length}`);
+            }
+            
+            return merged;
+          });
 
-          // Fetch meeting name from backend
-          const meetingName = await invoke<string | null>('get_recording_meeting_name');
-          if (meetingName) {
-            console.log('[Reload Sync] Retrieved meeting name:', meetingName);
-            setMeetingTitle(meetingName);
-            console.log('[Reload Sync] ✅ Meeting title synced successfully');
+          // Fetch meeting name from backend (only if we don't have one)
+          if (!meetingTitle || meetingTitle.startsWith('Meeting ')) {
+            const meetingName = await invoke<string | null>('get_recording_meeting_name');
+            if (meetingName) {
+              console.log('[Reload Sync] Retrieved meeting name:', meetingName);
+              setMeetingTitle(meetingName);
+            }
+          }
+          
+          // CRITICAL FIX: Sync mute state from backend when recording is active
+          try {
+            const muted = await invoke<boolean>('is_microphone_muted');
+            console.log('[Reload Sync] Retrieved mute state from backend:', muted);
+            // Note: We can't directly set mute state here, but RecordingControls will sync it on mount
+          } catch (error) {
+            console.error('[Reload Sync] Failed to get mute state:', error);
           }
         } catch (error) {
           console.error('[Reload Sync] Failed to sync from backend:', error);
@@ -647,8 +703,23 @@ export default function Home() {
       }
     };
 
+    // Initial sync
     syncFromBackend();
-  }, [recordingState.isRecording]); // Run when recording state changes
+    
+    // CRITICAL FIX: Set up periodic sync when recording is active
+    // This ensures transcripts update even if listener misses events
+    if (recordingState.isRecording) {
+      syncInterval = setInterval(syncFromBackend, 2000); // Sync every 2 seconds
+      console.log('[Reload Sync] Started periodic sync (every 2s)');
+    }
+
+    return () => {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        console.log('[Reload Sync] Stopped periodic sync');
+      }
+    };
+  }, [recordingState.isRecording, meetingTitle]); // Run when recording state changes
 
   // Set up chunk drop warning listener
   useEffect(() => {

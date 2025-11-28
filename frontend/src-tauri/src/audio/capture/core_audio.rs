@@ -168,20 +168,45 @@ impl CoreAudioCapture {
                                 .filter_map(|p| p.pid().ok())
                                 .collect();
                             
+                            let total_processes = all_pids.len();
+                            
                             // Exclude all PIDs EXCEPT selected ones
                             let exclude_pids: Vec<i32> = all_pids
-                                .into_iter()
+                                .iter()
                                 .filter(|pid| !selected_pids.contains(pid))
+                                .copied()
                                 .collect();
                             
-                            info!("🎙️ CoreAudio: Filtering - including {} apps, excluding {} processes", 
-                                  selected_pids.len(), exclude_pids.len());
+                            let exclude_ratio = if total_processes > 0 {
+                                exclude_pids.len() as f32 / total_processes as f32
+                            } else {
+                                0.0
+                            };
                             
-                            // Convert PIDs to NSArray of NSNumbers for process exclusion
-                            // Core Audio's with_mono_global_tap_excluding_processes expects NSArray
-                            if !exclude_pids.is_empty() {
-                                info!("✅ CoreAudio: Creating exclude array with {} PIDs: {:?}", exclude_pids.len(), exclude_pids);
-                                arc::R::<cidre::ns::Array<cidre::ns::Number>>::from(&exclude_pids[..])
+                            info!("🎙️ CoreAudio: Filtering - including {} apps ({} PIDs), excluding {} processes ({}% of total)", 
+                                  selected_pids.len(), selected_pids.len(), exclude_pids.len(), exclude_ratio * 100.0);
+                            
+                            // CRITICAL SAFETY CHECK: If we're excluding too many processes (>95%), 
+                            // fall back to global tap to ensure we capture audio
+                            if exclude_ratio > 0.95 {
+                                warn!("⚠️ CoreAudio: Exclude ratio too high ({:.1}%) - this would exclude almost everything!", exclude_ratio * 100.0);
+                                warn!("⚠️ CoreAudio: Falling back to global tap (capturing ALL audio) for safety");
+                                cidre::ns::Array::new()
+                            } else if !exclude_pids.is_empty() {
+                                // Convert PIDs to NSArray of NSNumbers for process exclusion
+                                // Core Audio's with_mono_global_tap_excluding_processes expects NSArray
+                                info!("✅ CoreAudio: Creating exclude array with {} PIDs", exclude_pids.len());
+                                
+                                // Create NSArray from Vec<i32> by converting to NSNumbers
+                                let ns_numbers: Vec<arc::R<ns::Number>> = exclude_pids
+                                    .iter()
+                                    .map(|&pid| ns::Number::with_i32(pid))
+                                    .collect();
+                                
+                                // Convert to NSArray
+                                let exclude_array = ns::Array::from_slice_retained(&ns_numbers);
+                                info!("✅ CoreAudio: Exclude array created successfully with {} items", exclude_array.len());
+                                exclude_array
                             } else {
                                 info!("🎙️ CoreAudio: No processes to exclude, using global tap");
                                 cidre::ns::Array::new()
@@ -201,12 +226,48 @@ impl CoreAudioCapture {
             cidre::ns::Array::new()
         };
         
+        // Log exclude array info for debugging
+        let exclude_count = exclude_array.len();
+        if exclude_count > 0 {
+            info!("🎙️ CoreAudio: Exclude array has {} items (will exclude these processes from capture)", exclude_count);
+        } else {
+            info!("🎙️ CoreAudio: Exclude array is empty (will capture ALL processes)");
+        }
+        
         let tap_desc = ca::TapDesc::with_mono_global_tap_excluding_processes(&exclude_array);
-        let tap = tap_desc.create_process_tap()
-            .map_err(|e| {
-                error!("❌ CoreAudio: Failed to create process tap: {:?}", e);
-                anyhow::anyhow!("Failed to create process tap: {:?}", e)
-            })?;
+        info!("🎙️ CoreAudio: Creating process tap with exclude array ({} processes to exclude)...", exclude_count);
+        
+        // CRITICAL: Try to create tap, but if it fails with filtering, fall back to global tap
+        let tap = match tap_desc.create_process_tap() {
+            Ok(t) => {
+                info!("✅ CoreAudio: Process tap created successfully!");
+                t
+            },
+            Err(e) => {
+                if exclude_count > 0 {
+                    // Filtering failed - fall back to global tap to ensure we capture audio
+                    warn!("⚠️ CoreAudio: Failed to create filtered tap: {:?}", e);
+                    warn!("⚠️ CoreAudio: Falling back to global tap (capturing ALL audio) to prevent missing audio");
+                    
+                    // Try again with empty exclude array (capture everything)
+                    let global_tap_desc = ca::TapDesc::with_mono_global_tap_excluding_processes(&cidre::ns::Array::new());
+                    global_tap_desc.create_process_tap()
+                        .map_err(|e2| {
+                            error!("❌ CoreAudio: Failed to create global tap as fallback: {:?}", e2);
+                            error!("❌ CoreAudio: This usually means:");
+                            error!("   1. Audio Capture permission not granted (System Settings → Privacy & Security → Audio Capture)");
+                            error!("   2. Core Audio API error");
+                            anyhow::anyhow!("Failed to create process tap (both filtered and global failed): {:?}, {:?}", e, e2)
+                        })?
+                } else {
+                    error!("❌ CoreAudio: Failed to create process tap: {:?}", e);
+                    error!("❌ CoreAudio: This usually means:");
+                    error!("   1. Audio Capture permission not granted (System Settings → Privacy & Security → Audio Capture)");
+                    error!("   2. Core Audio API error");
+                    return Err(anyhow::anyhow!("Failed to create process tap: {:?}", e));
+                }
+            }
+        };
 
         // Get tap information
         let tap_uid = tap.uid().unwrap_or_else(|_| cf::Uuid::new().to_cf_string());

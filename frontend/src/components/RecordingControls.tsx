@@ -131,12 +131,16 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
       // Call onRecordingStart after successful recording start
       onRecordingStart();
       
-      // Check initial mute state
+      // CRITICAL FIX: Check and sync mute state from backend
+      // This ensures mute state persists across page refreshes
       try {
         const muted = await invoke<boolean>('is_microphone_muted');
+        console.log('🎤 [Mute State] Initial mute state from backend:', muted);
         setIsMuted(muted);
       } catch (error) {
         console.error('Failed to get initial mute state:', error);
+        // Default to unmuted if we can't get state
+        setIsMuted(false);
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -197,6 +201,10 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
       setRecordingPath(savePath);
       // setShowPlayback(true);
       setIsProcessing(false);
+      
+      // CRITICAL FIX: Reset mute state when recording stops
+      console.log('🎤 [Mute State] Resetting mute state after recording stop');
+      setIsMuted(false);
       
       // Track successful transcription
       Analytics.trackTranscriptionSuccess();
@@ -286,10 +294,11 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
 
     try {
       const muted = await invoke<boolean>('toggle_microphone_mute');
+      console.log('🎤 [Mute State] Toggle result from backend:', muted);
       setIsMuted(muted);
-      console.log('Microphone mute toggled:', muted);
+      console.log('🎤 [Mute State] Local state updated to:', muted);
     } catch (error) {
-      console.error('Failed to toggle microphone mute:', error);
+      console.error('❌ [Mute State] Failed to toggle microphone mute:', error);
       alert('Failed to toggle microphone mute. Please check the console for details.');
     }
   }, [isRecording]);
@@ -377,8 +386,9 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
 
         // Microphone mute changed listener
         const muteChangedUnsubscribe = await listen('microphone-mute-changed', (event) => {
-          console.log('microphone-mute-changed event received:', event);
-          setIsMuted(event.payload as boolean);
+          const muted = event.payload as boolean;
+          console.log('🎤 [Mute State] Event received - mute state:', muted);
+          setIsMuted(muted);
         });
 
         // Speech detected listener - for UX feedback when VAD detects speech
