@@ -107,6 +107,9 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
     info!("🔍 [Question Gen] Raw LLM response length: {} chars", response.len());
     info!("🔍 [Question Gen] Raw LLM response preview: {}", &response[..response.len().min(200)]);
     
+    // Store response for fallback use
+    let response_clone = response.clone();
+    
     let questions: Vec<String> = {
         // Try to parse as JSON first
         let trimmed = response.trim();
@@ -135,12 +138,11 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
     
     let questions_before_filter = questions.len();
     let mut filtered_questions: Vec<String> = questions
-        .into_iter()
+        .iter()
         .map(|text| text.trim().to_string())
         .filter(|text| {
             // RELAXED filtering - only basic quality checks
             let trimmed = text.trim();
-            let lower = trimmed.to_lowercase();
             
             // Basic quality checks - very permissive
             let passes = !trimmed.is_empty()
@@ -161,24 +163,18 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
     // This ensures we always show something if the LLM generated questions
     if filtered_questions.is_empty() && questions_before_filter > 0 {
         warn!("⚠️ [Question Gen] All questions filtered out, but we have {} raw questions. Using first one anyway.", questions_before_filter);
-        // Get the first raw question from the original list (before filtering)
-        // We need to re-parse since we consumed the iterator
-        let trimmed = response.trim();
-        let json_start = trimmed.find('[').unwrap_or(0);
-        let json_end = trimmed.rfind(']').map(|i| i + 1).unwrap_or(trimmed.len());
-        let json_candidate = &trimmed[json_start..json_end];
-        
-        if let Ok(parsed) = serde_json::from_str::<Vec<String>>(json_candidate) {
-            if let Some(first_q) = parsed.first() {
-                let trimmed_q = first_q.trim();
-                if !trimmed_q.is_empty() {
-                    info!("✅ [Question Gen] Using fallback question: '{}'", &trimmed_q[..trimmed_q.len().min(100)]);
-                    filtered_questions.push(trimmed_q.to_string());
-                }
+        // Use the first raw question from the original list
+        if let Some(first_q) = questions.first() {
+            let trimmed_q = first_q.trim();
+            if !trimmed_q.is_empty() {
+                info!("✅ [Question Gen] Using fallback question: '{}'", &trimmed_q[..trimmed_q.len().min(100)]);
+                filtered_questions.push(trimmed_q.to_string());
             }
-        } else {
-            // Last resort: extract from text
-            let extracted = extract_questions_from_text(&response);
+        }
+        
+        // If still empty, try to extract from response text
+        if filtered_questions.is_empty() {
+            let extracted = extract_questions_from_text(&response_clone);
             if let Some(first_q) = extracted.first() {
                 info!("✅ [Question Gen] Using extracted fallback question: '{}'", &first_q[..first_q.len().min(100)]);
                 filtered_questions.push(first_q.clone());
