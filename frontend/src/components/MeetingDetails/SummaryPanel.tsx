@@ -232,7 +232,7 @@ export function SummaryPanel({
               ) : null}
             </div>
           )}
-          <div className="p-6 w-full">
+          <div className="p-6 w-full max-h-[calc(100vh-300px)] overflow-y-auto">
             <BlockNoteSummaryView
               ref={summaryRef}
               summaryData={aiSummary}
