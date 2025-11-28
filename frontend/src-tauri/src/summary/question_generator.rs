@@ -88,76 +88,75 @@ fn save_question_debug(
         .as_secs();
     
     if let Err(e) = writeln!(file, "\n{}", "=".repeat(80)) {
-            warn!("⚠️ [Question Gen] Failed to write to debug file: {}", e);
+        warn!("⚠️ [Question Gen] Failed to write to debug file: {}", e);
+        return;
+    }
+    
+    if let Err(e) = writeln!(file, "TIMESTAMP: {}", timestamp) {
+        warn!("⚠️ [Question Gen] Failed to write timestamp: {}", e);
+        return;
+    }
+    
+    if let Err(e) = writeln!(file, "\n--- TRANSCRIPT CHUNK ({} chars) ---", transcript_chunk.len()) {
+        warn!("⚠️ [Question Gen] Failed to write transcript chunk header: {}", e);
+        return;
+    }
+    if let Err(e) = writeln!(file, "{}", transcript_chunk) {
+        warn!("⚠️ [Question Gen] Failed to write transcript chunk: {}", e);
+        return;
+    }
+    
+    if let Err(e) = writeln!(file, "\n--- RECENT CONTEXT ({} chars) ---", recent_context.len()) {
+        warn!("⚠️ [Question Gen] Failed to write recent context header: {}", e);
+        return;
+    }
+    if let Err(e) = writeln!(file, "{}", recent_context) {
+        warn!("⚠️ [Question Gen] Failed to write recent context: {}", e);
+        return;
+    }
+    
+    if let Err(e) = writeln!(file, "\n--- PROMPT SENT TO LLM ({} chars) ---", prompt.len()) {
+        warn!("⚠️ [Question Gen] Failed to write prompt header: {}", e);
+        return;
+    }
+    if let Err(e) = writeln!(file, "{}", prompt) {
+        warn!("⚠️ [Question Gen] Failed to write prompt: {}", e);
+        return;
+    }
+    
+    if let Err(e) = writeln!(file, "\n--- LLM RAW RESPONSE ({} chars) ---", llm_response.len()) {
+        warn!("⚠️ [Question Gen] Failed to write LLM response header: {}", e);
+        return;
+    }
+    if let Err(e) = writeln!(file, "{}", llm_response) {
+        warn!("⚠️ [Question Gen] Failed to write LLM response: {}", e);
+        return;
+    }
+    
+    if let Err(e) = writeln!(file, "\n--- GENERATED QUESTIONS ({} total) ---", questions.len()) {
+        warn!("⚠️ [Question Gen] Failed to write questions header: {}", e);
+        return;
+    }
+    if questions.is_empty() {
+        if let Err(e) = writeln!(file, "NO QUESTIONS GENERATED") {
+            warn!("⚠️ [Question Gen] Failed to write no questions message: {}", e);
             return;
         }
-        
-        if let Err(e) = writeln!(file, "TIMESTAMP: {}", timestamp) {
-            warn!("⚠️ [Question Gen] Failed to write timestamp: {}", e);
-            return;
-        }
-        
-        if let Err(e) = writeln!(file, "\n--- TRANSCRIPT CHUNK ({} chars) ---", transcript_chunk.len()) {
-            warn!("⚠️ [Question Gen] Failed to write transcript chunk header: {}", e);
-            return;
-        }
-        if let Err(e) = writeln!(file, "{}", transcript_chunk) {
-            warn!("⚠️ [Question Gen] Failed to write transcript chunk: {}", e);
-            return;
-        }
-        
-        if let Err(e) = writeln!(file, "\n--- RECENT CONTEXT ({} chars) ---", recent_context.len()) {
-            warn!("⚠️ [Question Gen] Failed to write recent context header: {}", e);
-            return;
-        }
-        if let Err(e) = writeln!(file, "{}", recent_context) {
-            warn!("⚠️ [Question Gen] Failed to write recent context: {}", e);
-            return;
-        }
-        
-        if let Err(e) = writeln!(file, "\n--- PROMPT SENT TO LLM ({} chars) ---", prompt.len()) {
-            warn!("⚠️ [Question Gen] Failed to write prompt header: {}", e);
-            return;
-        }
-        if let Err(e) = writeln!(file, "{}", prompt) {
-            warn!("⚠️ [Question Gen] Failed to write prompt: {}", e);
-            return;
-        }
-        
-        if let Err(e) = writeln!(file, "\n--- LLM RAW RESPONSE ({} chars) ---", llm_response.len()) {
-            warn!("⚠️ [Question Gen] Failed to write LLM response header: {}", e);
-            return;
-        }
-        if let Err(e) = writeln!(file, "{}", llm_response) {
-            warn!("⚠️ [Question Gen] Failed to write LLM response: {}", e);
-            return;
-        }
-        
-        if let Err(e) = writeln!(file, "\n--- GENERATED QUESTIONS ({} total) ---", questions.len()) {
-            warn!("⚠️ [Question Gen] Failed to write questions header: {}", e);
-            return;
-        }
-        if questions.is_empty() {
-            if let Err(e) = writeln!(file, "NO QUESTIONS GENERATED") {
-                warn!("⚠️ [Question Gen] Failed to write no questions message: {}", e);
+    } else {
+        for (idx, q) in questions.iter().enumerate() {
+            if let Err(e) = writeln!(file, "{}. {}", idx + 1, q.text) {
+                warn!("⚠️ [Question Gen] Failed to write question {}: {}", idx + 1, e);
                 return;
             }
-        } else {
-            for (idx, q) in questions.iter().enumerate() {
-                if let Err(e) = writeln!(file, "{}. {}", idx + 1, q.text) {
-                    warn!("⚠️ [Question Gen] Failed to write question {}: {}", idx + 1, e);
-                    return;
-                }
-            }
         }
-        
-        if let Err(e) = writeln!(file, "\n{}\n", "=".repeat(80)) {
-            warn!("⚠️ [Question Gen] Failed to write separator: {}", e);
-            return;
-        }
-        
-        info!("✅ [Question Gen] Saved debug info to: {:?}", path);
     }
+    
+    if let Err(e) = writeln!(file, "\n{}\n", "=".repeat(80)) {
+        warn!("⚠️ [Question Gen] Failed to write separator: {}", e);
+        return;
+    }
+    
+    info!("✅ [Question Gen] Saved debug info to: {:?}", path);
 }
 
 /// Generate clarifying questions from transcript chunks
