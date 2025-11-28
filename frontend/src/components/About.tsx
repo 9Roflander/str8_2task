@@ -1,7 +1,6 @@
 import React from "react";
 import { invoke } from '@tauri-apps/api/core';
 import Image from 'next/image';
-import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch";
 
 
 export function About() {
@@ -84,8 +83,6 @@ export function About() {
                     </div>
                 </div>
             </div>
-
-            <AnalyticsConsentSwitch />
         </div>
 
     )
