@@ -49,6 +49,13 @@ interface OllamaModel {
   modified: string;
 }
 
+interface BackendQuestionPayload {
+  questions?: { text: string; context?: string }[];
+  sequence_id?: number;
+  chunk?: string;
+  context?: string;
+}
+
 export default function Home() {
   const [isRecording, setIsRecordingState] = useState(false);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -106,8 +113,6 @@ export default function Home() {
     return true;
   });
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
-  const transcriptBufferRef = useRef<string[]>([]); // Keep last 5 chunks for context
-
   // Track currentQuestion state changes
   useEffect(() => {
     if (currentQuestion) {
@@ -438,23 +443,35 @@ export default function Home() {
         // Check if we're in a Tauri environment
         if (typeof window === 'undefined' || !(window as any).__TAURI__) {
           console.warn('⚠️ Not in Tauri environment, skipping transcript listener setup');
+          console.warn('⚠️ Window object:', typeof window, 'Tauri available:', !!(window as any)?.__TAURI__);
           return;
         }
+        
+        console.log('✅ Tauri environment detected, proceeding with listener setup');
 
         // Wait a bit for Tauri to be fully ready
         await new Promise(resolve => setTimeout(resolve, 100));
 
         console.log('🔥 Setting up MAIN transcript listener during component initialization...');
-        unlistenFn = await listen<TranscriptUpdate>('transcript-update', (event) => {
+        const listenerResult = await listen<TranscriptUpdate>('transcript-update', (event) => {
           const now = Date.now();
           console.log('🎯 MAIN LISTENER: Received transcript update:', {
+            FULL_TEXT: event.payload.text, // Log full text for debugging
             sequence_id: event.payload.sequence_id,
             text: event.payload.text.substring(0, 50) + '...',
             timestamp: event.payload.timestamp,
             is_partial: event.payload.is_partial,
             received_at: new Date(now).toISOString(),
-            buffer_size_before: transcriptBuffer.size
+            buffer_size_before: transcriptBuffer.size,
+            textLength: event.payload.text.length,
+            textTrimmedLength: event.payload.text.trim().length
           });
+          
+          // CRITICAL: Validate event payload
+          if (!event || !event.payload || !event.payload.text) {
+            console.error('❌ [Question Flow] Invalid event payload:', event);
+            return;
+          }
 
           // Check for duplicate sequence_id before processing
           if (transcriptBuffer.has(event.payload.sequence_id)) {
@@ -481,81 +498,12 @@ export default function Home() {
           transcriptBuffer.set(event.payload.sequence_id, newTranscript);
           console.log(`✅ MAIN LISTENER: Buffered transcript with sequence_id ${event.payload.sequence_id}. Buffer size: ${transcriptBuffer.size}, Last processed: ${lastProcessedSequence}`);
 
-          // Generate clarifying questions (async, non-blocking)
-          if (event.payload.text.trim().length > 50) { // Only for substantial chunks
-            const chunkText = event.payload.text;
-            transcriptBufferRef.current.push(chunkText);
-            if (transcriptBufferRef.current.length > 5) {
-              transcriptBufferRef.current.shift(); // Keep last 5
-            }
-            const recentContext = transcriptBufferRef.current.slice(0, -1).join('\n');
-            
-            console.log('🔍 [Question Flow] Triggering question generation:', {
-              chunkLength: chunkText.length,
-              contextLength: recentContext.length,
-              chunkPreview: chunkText.substring(0, 100) + '...'
-            });
-            
-            // Generate questions in background (don't await)
-            invoke('generate_clarifying_questions', {
-              transcriptChunk: chunkText,
-              recentContext: recentContext
-            }).then((questions: any) => {
-              console.log('📥 [Question Flow] Questions received from Rust:', {
-                rawResponse: questions,
-                isArray: Array.isArray(questions),
-                length: Array.isArray(questions) ? questions.length : 'N/A',
-                type: typeof questions
-              });
-              
-              // CRITICAL FIX: Handle different response formats
-              let questionText: string | null = null;
-              
-              if (Array.isArray(questions) && questions.length > 0) {
-                const firstQuestion = questions[0];
-                console.log('✅ [Question Flow] First question object:', firstQuestion);
-                
-                // Handle Question object with .text property
-                if (firstQuestion && typeof firstQuestion === 'object' && 'text' in firstQuestion) {
-                  questionText = firstQuestion.text;
-                  console.log('📝 [Question Flow] Question text from object:', questionText);
-                } 
-                // Handle string array
-                else if (typeof firstQuestion === 'string') {
-                  questionText = firstQuestion;
-                  console.log('📝 [Question Flow] Question text from string:', questionText);
-                }
-                // Handle other formats
-                else {
-                  console.warn('⚠️ [Question Flow] Unexpected question format:', firstQuestion);
-                  // Try to extract text anyway
-                  questionText = String(firstQuestion);
-                }
-                
-                if (questionText && questionText.trim().length > 0) {
-                  console.log('🎯 [Question Flow] Setting currentQuestion to:', questionText);
-                  setCurrentQuestion(questionText);
-                  console.log('✅ [Question Flow] Question set successfully');
-                } else {
-                  console.warn('⚠️ [Question Flow] Question text is empty or invalid');
-                }
-              } else {
-                console.log('ℹ️ [Question Flow] No questions to display:', {
-                  isArray: Array.isArray(questions),
-                  length: Array.isArray(questions) ? questions.length : 'N/A',
-                  isEmpty: Array.isArray(questions) && questions.length === 0,
-                  questions
-                });
-              }
-            }).catch(err => {
-              console.error('❌ [Question Flow] Question generation failed:', err);
-              console.error('❌ [Question Flow] Error details:', {
-                message: err?.message,
-                stack: err?.stack,
-                error: err
-              });
-            });
-          }
+          const textLength = event.payload.text.trim().length;
+          console.log('🤖 [Question Flow] Transcript chunk received (backend now manages questions):', {
+            textLength,
+            sequenceId: event.payload.sequence_id,
+            isPartial: event.payload.is_partial
+          });
 
           // Clear any existing timer and set a new one
           if (processingTimer) {
@@ -565,9 +513,15 @@ export default function Home() {
           // Process buffer with minimal delay for immediate UI updates (serial workers = sequential order)
           processingTimer = setTimeout(processBufferedTranscripts, 10);
         });
-        console.log('✅ MAIN transcript listener setup complete');
+        unlistenFn = listenerResult;
+        console.log('✅ MAIN transcript listener setup complete. Listener function:', typeof unlistenFn);
       } catch (error) {
         console.error('❌ Failed to setup MAIN transcript listener:', error);
+        console.error('❌ Error details:', {
+          message: (error as any)?.message,
+          stack: (error as any)?.stack,
+          error: error
+        });
         alert('Failed to setup transcript listener. Check console for details.');
       }
     };
@@ -584,6 +538,49 @@ export default function Home() {
       if (unlistenFn) {
         unlistenFn();
         console.log('🧹 CLEANUP: MAIN transcript listener cleaned up');
+      }
+    };
+  }, []);
+
+  // Listen for backend-generated clarifying questions
+  useEffect(() => {
+    let unlistenQuestions: (() => void) | undefined;
+
+    const setupQuestionListener = async () => {
+      try {
+        console.log('🤖 [Question Flow] Setting up backend clarifying-question listener...');
+        unlistenQuestions = await listen<BackendQuestionPayload>('clarifying-question-generated', (event) => {
+          console.log('📬 [Question Flow] Clarifying-question event received:', event.payload);
+          const payload = event.payload;
+          const questions = payload?.questions || [];
+
+          if (!questions.length) {
+            console.warn('⚠️ [Question Flow] Clarifying-question event contained no questions');
+            return;
+          }
+
+          const first = questions[0];
+          const resolvedQuestion = first?.text?.trim() || "What should we clarify about this?";
+
+          if (!first?.text) {
+            console.warn('⚠️ [Question Flow] Clarifying-question payload missing text, using fallback');
+          }
+
+          console.log('🎯 [Question Flow] Setting question from backend event:', resolvedQuestion);
+          setCurrentQuestion(resolvedQuestion);
+        });
+        console.log('✅ [Question Flow] Backend clarifying-question listener ready');
+      } catch (error) {
+        console.error('❌ [Question Flow] Failed to set up backend clarifying-question listener:', error);
+      }
+    };
+
+    setupQuestionListener();
+
+    return () => {
+      if (unlistenQuestions) {
+        unlistenQuestions();
+        console.log('🧹 [Question Flow] Backend clarifying-question listener cleaned up');
       }
     };
   }, []);

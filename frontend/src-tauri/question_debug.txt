@@ -1,0 +1,1860 @@
+
+================================================================================
+TIMESTAMP: 1764302782
+
+--- TRANSCRIPT CHUNK (92 chars) ---
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (2025 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (164 chars) ---
+```json
+[
+  "To confirm, are we referring to the sprint retrospective when we say \"retro\"?",
+  "If the retro is moved, what day will it be rescheduled for?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. To confirm, are we referring to the sprint retrospective when we say "retro"?
+2. If the retro is moved, what day will it be rescheduled for?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302787
+
+--- TRANSCRIPT CHUNK (47 chars) ---
+Friday afternoon is release time. That's risky.
+
+--- RECENT CONTEXT (92 chars) ---
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+
+--- PROMPT SENT TO LLM (2072 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Current transcript:
+Friday afternoon is release time. That's risky.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (219 chars) ---
+```json
+[
+  "What specific risks are associated with releasing on Friday afternoon?",
+  "Are there specific criteria we should use to evaluate this risk?",
+  "Should we consider an alternate release day and time?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. What specific risks are associated with releasing on Friday afternoon?
+2. Are there specific criteria we should use to evaluate this risk?
+3. Should we consider an alternate release day and time?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302790
+
+--- TRANSCRIPT CHUNK (19 chars) ---
+Yeah. Monday works.
+
+--- RECENT CONTEXT (140 chars) ---
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Friday afternoon is release time. That's risky.
+
+--- PROMPT SENT TO LLM (2092 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Friday afternoon is release time. That's risky.
+Current transcript:
+Yeah. Monday works.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (132 chars) ---
+```json
+[
+  "Regarding 'Monday works', what specifically is being referred to? Is that regarding the retro or something else?"
+]
+```
+
+--- GENERATED QUESTIONS (1 total) ---
+1. Regarding 'Monday works', what specifically is being referred to? Is that regarding the retro or something else?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302796
+
+--- TRANSCRIPT CHUNK (71 chars) ---
+Now about the Friday demo, we promised the CEO the new onboarding flow.
+
+--- RECENT CONTEXT (160 chars) ---
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Friday afternoon is release time. That's risky.
+Yeah. Monday works.
+
+--- PROMPT SENT TO LLM (2164 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Friday afternoon is release time. That's risky.
+Yeah. Monday works.
+Current transcript:
+Now about the Friday demo, we promised the CEO the new onboarding flow.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (245 chars) ---
+```json
+[
+  "Will the new onboarding flow demo on Friday still happen, given the discussion of a Thursday retro and Friday release?",
+  "What are the acceptance criteria for \"new onboarding flow\" the CEO is expecting to see in the demo?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Will the new onboarding flow demo on Friday still happen, given the discussion of a Thursday retro and Friday release?
+2. What are the acceptance criteria for "new onboarding flow" the CEO is expecting to see in the demo?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302801
+
+--- TRANSCRIPT CHUNK (70 chars) ---
+Depends on the stripe web hook. If it keeps failing, onboarding hangs.
+
+--- RECENT CONTEXT (232 chars) ---
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Friday afternoon is release time. That's risky.
+Yeah. Monday works.
+Now about the Friday demo, we promised the CEO the new onboarding flow.
+
+--- PROMPT SENT TO LLM (2235 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+One quick thing. Are we still doing the retro on Thursday? Or moving it because of the demo?
+Friday afternoon is release time. That's risky.
+Yeah. Monday works.
+Now about the Friday demo, we promised the CEO the new onboarding flow.
+Current transcript:
+Depends on the stripe web hook. If it keeps failing, onboarding hangs.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (321 chars) ---
+```json
+[
+  "Who is responsible for monitoring the Stripe webhook and addressing the failures?",
+  "If the Stripe webhook keeps failing, what is the plan B for the onboarding flow demo for the CEO?",
+  "When will we know if the Stripe web hook situation is resolved so that we can confirm the onboarding flow demo?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Who is responsible for monitoring the Stripe webhook and addressing the failures?
+2. If the Stripe webhook keeps failing, what is the plan B for the onboarding flow demo for the CEO?
+3. When will we know if the Stripe web hook situation is resolved so that we can confirm the onboarding flow demo?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302860
+
+--- TRANSCRIPT CHUNK (51 chars) ---
+I'm leaving early Friday for a dentist appointment.
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (1984 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+I'm leaving early Friday for a dentist appointment.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (100 chars) ---
+```json
+[
+  "Will your early departure on Friday impact any planned meetings or deliverables?"
+]
+```
+
+--- GENERATED QUESTIONS (1 total) ---
+1. Will your early departure on Friday impact any planned meetings or deliverables?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302880
+
+--- TRANSCRIPT CHUNK (173 chars) ---
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+
+--- RECENT CONTEXT (51 chars) ---
+I'm leaving early Friday for a dentist appointment.
+
+--- PROMPT SENT TO LLM (2157 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+I'm leaving early Friday for a dentist appointment.
+Current transcript:
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (332 chars) ---
+```json
+[
+  "To confirm, was the user table migration issue isolated to staging, or are there concerns about production?",
+  "What steps are being taken to prevent this from happening again, and who is responsible for implementing those?",
+  "Should we schedule time to review the migration process to avoid future incidents?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. To confirm, was the user table migration issue isolated to staging, or are there concerns about production?
+2. What steps are being taken to prevent this from happening again, and who is responsible for implementing those?
+3. Should we schedule time to review the migration process to avoid future incidents?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302889
+
+--- TRANSCRIPT CHUNK (90 chars) ---
+Sorry, it's fixed now, but I still can't move forward. I need ops to sort out permissions.
+
+--- RECENT CONTEXT (225 chars) ---
+I'm leaving early Friday for a dentist appointment.
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+
+--- PROMPT SENT TO LLM (2248 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+I'm leaving early Friday for a dentist appointment.
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+Current transcript:
+Sorry, it's fixed now, but I still can't move forward. I need ops to sort out permissions.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (202 chars) ---
+```json
+[
+  "Which ops team member should we tag to sort out the permissions?",
+  "What is blocked until the permissions are sorted out?",
+  "What is the priority of fixing the permissions issue?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Which ops team member should we tag to sort out the permissions?
+2. What is blocked until the permissions are sorted out?
+3. What is the priority of fixing the permissions issue?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302900
+
+--- TRANSCRIPT CHUNK (114 chars) ---
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+
+--- RECENT CONTEXT (316 chars) ---
+I'm leaving early Friday for a dentist appointment.
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+Sorry, it's fixed now, but I still can't move forward. I need ops to sort out permissions.
+
+--- PROMPT SENT TO LLM (2363 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+I'm leaving early Friday for a dentist appointment.
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+Sorry, it's fixed now, but I still can't move forward. I need ops to sort out permissions.
+Current transcript:
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (228 chars) ---
+```json
+[
+  "Regarding the Stripe webhook issue, are you blocked and need immediate assistance, or is this something you can work through?",
+  "Who can investigate the Stripe API documentation to confirm if it's outdated?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Regarding the Stripe webhook issue, are you blocked and need immediate assistance, or is this something you can work through?
+2. Who can investigate the Stripe API documentation to confirm if it's outdated?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764302908
+
+--- TRANSCRIPT CHUNK (132 chars) ---
+Is that blocking you? Completely. I can't finish the checkout flow. Pause the migration. Pair up on Stripe instead. Higher priority.
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (2065 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+Is that blocking you? Completely. I can't finish the checkout flow. Pause the migration. Pair up on Stripe instead. Higher priority.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (102 chars) ---
+```json
+[
+  "Who will pause the migration?",
+  "What's blocking the checkout flow specifically?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who will pause the migration?
+2. What's blocking the checkout flow specifically?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303073
+
+--- TRANSCRIPT CHUNK (52 chars) ---
+Oh god, yes. I got locked out of stuff this morning.
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (1985 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+Oh god, yes. I got locked out of stuff this morning.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (143 chars) ---
+```json
+[
+  "What \"stuff\" were you locked out of this morning?",
+  "Was being locked out blocking you from a specific task or project?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. What "stuff" were you locked out of this morning?
+2. Was being locked out blocking you from a specific task or project?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303091
+
+--- TRANSCRIPT CHUNK (199 chars) ---
+Um and uh but to avoid adding three net new meetings to stakeholders counters and propose we do a sort of two month rotation. So month one, development quality go, month two security and UX would go.
+
+--- RECENT CONTEXT (52 chars) ---
+Oh god, yes. I got locked out of stuff this morning.
+
+--- PROMPT SENT TO LLM (2184 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Oh god, yes. I got locked out of stuff this morning.
+Current transcript:
+Um and uh but to avoid adding three net new meetings to stakeholders counters and propose we do a sort of two month rotation. So month one, development quality go, month two security and UX would go.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (308 chars) ---
+```json
+[
+  "Regarding the two-month rotation, can we clarify who is responsible for defining the specific goals/agenda for each month's \"go\"?",
+  "What criteria will be used to determine if development quality, security, or UX are ready to 'go' each month?",
+  "What does 'go' mean in this context?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Regarding the two-month rotation, can we clarify who is responsible for defining the specific goals/agenda for each month's "go"?
+2. What criteria will be used to determine if development quality, security, or UX are ready to 'go' each month?
+3. What does 'go' mean in this context?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303105
+
+--- TRANSCRIPT CHUNK (93 chars) ---
+I think in the group conversations it's working really well. Um so I'm I'm supportive. And uh
+
+--- RECENT CONTEXT (252 chars) ---
+Oh god, yes. I got locked out of stuff this morning.
+Um and uh but to avoid adding three net new meetings to stakeholders counters and propose we do a sort of two month rotation. So month one, development quality go, month two security and UX would go.
+
+--- PROMPT SENT TO LLM (2278 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Oh god, yes. I got locked out of stuff this morning.
+Um and uh but to avoid adding three net new meetings to stakeholders counters and propose we do a sort of two month rotation. So month one, development quality go, month two security and UX would go.
+Current transcript:
+I think in the group conversations it's working really well. Um so I'm I'm supportive. And uh
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (312 chars) ---
+```json
+[
+  "For the proposed rotation (dev/quality then security/UX), what are the specific criteria for development and quality to 'go' in month one?",
+  "What are the next steps for the group conversations now that it's working well? Should we document best practices or share the approach more widely?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. For the proposed rotation (dev/quality then security/UX), what are the specific criteria for development and quality to 'go' in month one?
+2. What are the next steps for the group conversations now that it's working well? Should we document best practices or share the approach more widely?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303213
+
+--- TRANSCRIPT CHUNK (46 chars) ---
+Running late. Kid drop off. She'll join later.
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (1979 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+Running late. Kid drop off. She'll join later.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (118 chars) ---
+```json
+[
+  "Who is running late and will join later?",
+  "Is there anything we need to cover before she joins?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who is running late and will join later?
+2. Is there anything we need to cover before she joins?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303225
+
+--- TRANSCRIPT CHUNK (173 chars) ---
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+
+--- RECENT CONTEXT (46 chars) ---
+Running late. Kid drop off. She'll join later.
+
+--- PROMPT SENT TO LLM (2152 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Running late. Kid drop off. She'll join later.
+Current transcript:
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (172 chars) ---
+```json
+[
+  "What caused the user table migration to blow up staging?",
+  "What steps are being taken to prevent the user table migration issue from happening again?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. What caused the user table migration to blow up staging?
+2. What steps are being taken to prevent the user table migration issue from happening again?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303258
+
+--- TRANSCRIPT CHUNK (576 chars) ---
+Wait, that's what QA was down? I couldn't test the payment gateway. Yeah, sorry. It's fixed now, but I still can't move forward. I need ops to sort out permissions. Do we need a ticket for that? No? I just need to message someone. But hey, you mind checking the logs if you have time? I'm swamped. The stripe webhook is failing. It's not returning the right token, and I think the docs are outdated. Is that blocking you? Completely. I can't finish the checkout flow. Alright then. Pause the migration. Pair up on Stripe instead. Higher priority. Fine. I'll park my ticket. Uh
+
+--- RECENT CONTEXT (220 chars) ---
+Running late. Kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+
+--- PROMPT SENT TO LLM (2729 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Running late. Kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up staging. Everything went five hundred. I spent the whole afternoon rolling it back.
+Current transcript:
+Wait, that's what QA was down? I couldn't test the payment gateway. Yeah, sorry. It's fixed now, but I still can't move forward. I need ops to sort out permissions. Do we need a ticket for that? No? I just need to message someone. But hey, you mind checking the logs if you have time? I'm swamped. The stripe webhook is failing. It's not returning the right token, and I think the docs are outdated. Is that blocking you? Completely. I can't finish the checkout flow. Alright then. Pause the migration. Pair up on Stripe instead. Higher priority. Fine. I'll park my ticket. Uh
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (107 chars) ---
+```json
+[
+  "Who will message Ops about the permissions?",
+  "Who is pairing up on the Stripe issue?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who will message Ops about the permissions?
+2. Who is pairing up on the Stripe issue?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303298
+
+--- TRANSCRIPT CHUNK (51 chars) ---
+I'm leaving early Friday for a dentist appointment.
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (1984 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+I'm leaving early Friday for a dentist appointment.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (85 chars) ---
+```json
+[
+  "What time are you leaving on Friday for your dentist appointment?"
+]
+```
+
+--- GENERATED QUESTIONS (1 total) ---
+1. What time are you leaving on Friday for your dentist appointment?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303361
+
+--- TRANSCRIPT CHUNK (46 chars) ---
+Running late, kid drop off. She'll join later.
+
+--- RECENT CONTEXT (0 chars) ---
+
+
+--- PROMPT SENT TO LLM (1979 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+
+Current transcript:
+Running late, kid drop off. She'll join later.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (127 chars) ---
+```json
+[
+  "Who is running late and will be joining later?",
+  "Will we need to recap anything for them when they join?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who is running late and will be joining later?
+2. Will we need to recap anything for them when they join?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303374
+
+--- TRANSCRIPT CHUNK (120 chars) ---
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+
+--- RECENT CONTEXT (46 chars) ---
+Running late, kid drop off. She'll join later.
+
+--- PROMPT SENT TO LLM (2099 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Running late, kid drop off. She'll join later.
+Current transcript:
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (287 chars) ---
+```json
+[
+  "What specific issues did you encounter with the user table migration that led to the 500 errors?",
+  "What are the immediate next steps to address the failed migration?",
+  "Do we need to roll anything back or is it a matter of fixing the migration and re-running it?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. What specific issues did you encounter with the user table migration that led to the 500 errors?
+2. What are the immediate next steps to address the failed migration?
+3. Do we need to roll anything back or is it a matter of fixing the migration and re-running it?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303382
+
+--- TRANSCRIPT CHUNK (126 chars) ---
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+
+--- RECENT CONTEXT (167 chars) ---
+Running late, kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+
+--- PROMPT SENT TO LLM (2226 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Running late, kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Current transcript:
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (237 chars) ---
+```json
+[
+  "Which fix are you referring to when you say you couldn't verify the fix?",
+  "What specific permissions do you need from ops to move the moment?",
+  "Who from Ops needs to be contacted regarding the permissions issue?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Which fix are you referring to when you say you couldn't verify the fix?
+2. What specific permissions do you need from ops to move the moment?
+3. Who from Ops needs to be contacted regarding the permissions issue?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303393
+
+--- TRANSCRIPT CHUNK (114 chars) ---
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+
+--- RECENT CONTEXT (294 chars) ---
+Running late, kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+
+--- PROMPT SENT TO LLM (2341 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Running late, kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+Current transcript:
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (246 chars) ---
+```json
+[
+  "Which Stripe webhook is failing and what specific token are you expecting?",
+  "Who can verify whether the Stripe documentation is outdated, and how outdated is it?",
+  "What's the priority for fixing the Stripe webhook issue?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Which Stripe webhook is failing and what specific token are you expecting?
+2. Who can verify whether the Stripe documentation is outdated, and how outdated is it?
+3. What's the priority for fixing the Stripe webhook issue?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303401
+
+--- TRANSCRIPT CHUNK (80 chars) ---
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+
+--- RECENT CONTEXT (409 chars) ---
+Running late, kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+
+--- PROMPT SENT TO LLM (2422 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Running late, kid drop off. She'll join later.
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+Current transcript:
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (155 chars) ---
+```json
+[
+  "Who will pause the migration?",
+  "Who will pair on the Stripe webhook issue, and for how long should we allocate that pairing session?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who will pause the migration?
+2. Who will pair on the Stripe webhook issue, and for how long should we allocate that pairing session?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303412
+
+--- TRANSCRIPT CHUNK (49 chars) ---
+Anything else? Also the coffee machine is broken.
+
+--- RECENT CONTEXT (443 chars) ---
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+
+--- PROMPT SENT TO LLM (2425 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Yesterday was a mess. I tried running that user table migration and it completely blew up. Everything went five hundred.
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Current transcript:
+Anything else? Also the coffee machine is broken.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (124 chars) ---
+```json
+[
+  "Who can take a look at the coffee machine?",
+  "Should fixing the coffee machine be assigned a priority?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who can take a look at the coffee machine?
+2. Should fixing the coffee machine be assigned a priority?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303422
+
+--- TRANSCRIPT CHUNK (112 chars) ---
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+
+--- RECENT CONTEXT (372 chars) ---
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Anything else? Also the coffee machine is broken.
+
+--- PROMPT SENT TO LLM (2417 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Yeah. I couldn't tell you. I couldn't verify the fixed. But I still can't move the moment. I need ops to sort out permissions.
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Anything else? Also the coffee machine is broken.
+Current transcript:
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (272 chars) ---
+```json
+[
+  "Who was assigned to verify the header fix?",
+  "What are the next steps for QA now that the header fix is back in progress?",
+  "What are the staging environment dependencies that caused the outage and how will those be addressed to prevent recurrence?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Who was assigned to verify the header fix?
+2. What are the next steps for QA now that the header fix is back in progress?
+3. What are the staging environment dependencies that caused the outage and how will those be addressed to prevent recurrence?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303429
+
+--- TRANSCRIPT CHUNK (60 chars) ---
+Log it right after this. Is it a release blocker for Friday?
+
+--- RECENT CONTEXT (358 chars) ---
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Anything else? Also the coffee machine is broken.
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+
+--- PROMPT SENT TO LLM (2351 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+I'm swamped. The Stripe webhook is failing. It's not returning the right token. And I think the docs are outdated.
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Anything else? Also the coffee machine is broken.
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+Current transcript:
+Log it right after this. Is it a release blocker for Friday?
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (254 chars) ---
+```json
+[
+  "Who should log the coffee machine issue?",
+  "Is the 'header fix' a release blocker for Friday if QA can't verify it?",
+  "What are the specific acceptance criteria for the 'header fix' that QA needs to verify once staging is back up?"
+]
+```
+
+--- GENERATED QUESTIONS (3 total) ---
+1. Who should log the coffee machine issue?
+2. Is the 'header fix' a release blocker for Friday if QA can't verify it?
+3. What are the specific acceptance criteria for the 'header fix' that QA needs to verify once staging is back up?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303438
+
+--- TRANSCRIPT CHUNK (101 chars) ---
+Hold on. I thought we removed the mobile search bar for this release. I updated the design last week.
+
+--- RECENT CONTEXT (304 chars) ---
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Anything else? Also the coffee machine is broken.
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+Log it right after this. Is it a release blocker for Friday?
+
+--- PROMPT SENT TO LLM (2338 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+All right then. Pause the migration. Pair up on Stripe instead. Higher priority.
+Anything else? Also the coffee machine is broken.
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+Log it right after this. Is it a release blocker for Friday?
+Current transcript:
+Hold on. I thought we removed the mobile search bar for this release. I updated the design last week.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (183 chars) ---
+```json
+[
+  "Who updated the design for the mobile search bar?",
+  "Can we confirm if the mobile search bar removal is still planned for the Friday release or has that changed?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who updated the design for the mobile search bar?
+2. Can we confirm if the mobile search bar removal is still planned for the Friday release or has that changed?
+
+================================================================================
+
+
+================================================================================
+TIMESTAMP: 1764303447
+
+--- TRANSCRIPT CHUNK (101 chars) ---
+All right. We'll sort that out offline. If the feature is cut, close the ticket. If not, log the bug.
+
+--- RECENT CONTEXT (325 chars) ---
+Anything else? Also the coffee machine is broken.
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+Log it right after this. Is it a release blocker for Friday?
+Hold on. I thought we removed the mobile search bar for this release. I updated the design last week.
+
+--- PROMPT SENT TO LLM (2359 chars) ---
+You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
+
+Recent context:
+Anything else? Also the coffee machine is broken.
+QA update? Yeah. Since staging was down, I couldn't verify the header fix, so I'm moving it back to in progress.
+Log it right after this. Is it a release blocker for Friday?
+Hold on. I thought we removed the mobile search bar for this release. I updated the design last week.
+Current transcript:
+All right. We'll sort that out offline. If the feature is cut, close the ticket. If not, log the bug.
+
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
+
+Focus on identifying:
+1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
+2. **Unclear Deadlines**: Tasks without specific due dates or vague timelines ("soon", "later")
+3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
+4. **Missing Priorities**: Tasks that lack urgency/importance classification
+5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
+
+IMPORTANT GUIDELINES:
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
+- Questions should be suitable for posting in a meeting chat
+- Questions should be actionable - asking for specific information
+- Use names if mentioned in the transcript
+- Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
+
+EXAMPLE QUESTIONS:
+- "Who will be handling the Stripe webhook fix?"
+- "What's the deadline for the API documentation?"
+- "Can we confirm the priority for the VPN issue - is it blocking the release?"
+- "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
+
+Return ONLY a JSON array of question strings. Example:
+["Who should be assigned to this task?", "What is the deadline for this?"]
+
+CRITICAL: Always return at least 1 question. Never return an empty array.
+
+--- LLM RAW RESPONSE (203 chars) ---
+```json
+[
+  "Who will be responsible for sorting out the header fix issue offline?",
+  "Who will be responsible to either close the ticket or log the bug, and what is the deadline for this action?"
+]
+```
+
+--- GENERATED QUESTIONS (2 total) ---
+1. Who will be responsible for sorting out the header fix issue offline?
+2. Who will be responsible to either close the ticket or log the bug, and what is the deadline for this action?
+
+================================================================================
+

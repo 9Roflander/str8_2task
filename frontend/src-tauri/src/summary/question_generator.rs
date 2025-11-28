@@ -2,7 +2,7 @@ use crate::summary::llm_client::{LLMProvider, generate_summary};
 use std::str::FromStr;
 use crate::database::repositories::setting::SettingsRepository;
 use sqlx::SqlitePool;
-use log::{info, warn};
+use log::{info, warn, error};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -177,26 +177,62 @@ pub async fn generate_questions(
     info!("🔍 [Question Gen] recent_context preview: {}", 
           &recent_context[..recent_context.len().min(200)]);
     
-    if transcript_chunk.trim().is_empty() {
-        warn!("⚠️ [Question Gen] transcript_chunk is empty, returning empty questions");
-        return Ok(vec![]);
+    // RELAXED: Allow very short chunks (minimum 5 chars) for popup display
+    if transcript_chunk.trim().len() < 5 {
+        warn!("⚠️ [Question Gen] transcript_chunk is too short ({} chars), using fallback question", transcript_chunk.trim().len());
+        // Return a generic question instead of empty
+        return Ok(vec![Question {
+            text: "What should we clarify about this?".to_string(),
+            context: transcript_chunk.to_string(),
+        }]);
     }
 
     // Get model config
     let config = SettingsRepository::get_model_config(pool)
         .await
-        .map_err(|e| format!("Failed to get model config: {}", e))?;
+        .map_err(|e| {
+            warn!("❌ [Question Gen] Failed to get model config from database: {}", e);
+            format!("Failed to get model config: {}", e)
+        })?;
 
-    let config = config.ok_or_else(|| "Model config not found".to_string())?;
+    let config = config.ok_or_else(|| {
+        warn!("❌ [Question Gen] Model config not found in database");
+        "Model config not found. Please configure a model in Settings.".to_string()
+    })?;
+    
+    info!("✅ [Question Gen] Model config loaded: provider={}, model={}", config.provider, config.model);
     
     // Parse provider
     let provider = LLMProvider::from_str(&config.provider)
-        .map_err(|e| format!("Invalid provider: {}", e))?;
+        .map_err(|e| {
+            warn!("❌ [Question Gen] Invalid provider '{}': {}", config.provider, e);
+            format!("Invalid provider '{}': {}", config.provider, e)
+        })?;
 
-    let api_key = SettingsRepository::get_api_key(pool, &config.provider)
-        .await
-        .map_err(|e| format!("Failed to get API key: {}", e))?
-        .unwrap_or_default();
+    // Get API key (not required for Ollama)
+    let api_key = if provider == LLMProvider::Ollama {
+        // Ollama doesn't require API key, use empty string
+        info!("ℹ️ [Question Gen] Using Ollama provider (no API key required)");
+        String::new()
+    } else {
+        SettingsRepository::get_api_key(pool, &config.provider)
+            .await
+            .map_err(|e| {
+                warn!("❌ [Question Gen] Failed to get API key for provider '{}': {}", config.provider, e);
+                format!("Failed to get API key: {}", e)
+            })?
+            .unwrap_or_else(|| {
+                warn!("⚠️ [Question Gen] API key not found for provider '{}', using empty string", config.provider);
+                String::new()
+            })
+    };
+    
+    // Validate API key for providers that require it (except Ollama)
+    if api_key.is_empty() && provider != LLMProvider::Ollama {
+        warn!("⚠️ [Question Gen] API key is empty for provider '{}', but continuing anyway", config.provider);
+    } else if !api_key.is_empty() {
+        info!("✅ [Question Gen] API key loaded (length: {} chars)", api_key.len());
+    }
 
     // General prompt for meeting facilitation - similar to backend implementation
     // CRITICAL: Make prompt more direct and ensure questions are always generated
@@ -251,6 +287,10 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
         .timeout(std::time::Duration::from_secs(1800)) // 30 minutes
         .build()
         .unwrap_or_else(|_| reqwest::Client::new()); // Fallback to default if builder fails
+    
+    info!("🚀 [Question Gen] Calling LLM with provider={:?}, model={}, endpoint={:?}", 
+          provider, config.model, config.ollama_endpoint);
+    
     let response = generate_summary(
         &client,
         &provider,
@@ -261,7 +301,12 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
         config.ollama_endpoint.as_deref(),
     )
     .await
-    .map_err(|e| format!("Failed to generate questions: {}", e))?;
+    .map_err(|e| {
+        error!("❌ [Question Gen] LLM call failed: {}", e);
+        format!("Failed to generate questions from LLM: {}. Please check your model configuration and API keys.", e)
+    })?;
+    
+    info!("✅ [Question Gen] LLM response received: {} chars", response.len());
 
     // Parse response - expect JSON array, but handle various formats
     info!("🔍 [Question Gen] Raw LLM response length: {} chars", response.len());
@@ -297,62 +342,95 @@ CRITICAL: Always return at least 1 question. Never return an empty array."#,
     }
     
     let questions_before_filter = questions.len();
+    // ULTRA-RELAXED filtering for popup display - accept almost anything
     let mut filtered_questions: Vec<String> = questions
         .iter()
         .map(|text| text.trim().to_string())
         .filter(|text| {
-            // RELAXED filtering - only basic quality checks
             let trimmed = text.trim();
-            
-            // Basic quality checks - very permissive
-            let passes = !trimmed.is_empty()
-                && trimmed.len() <= 300 // Increased max to 300 chars
-                && trimmed.len() >= 5   // Reduced min to 5 chars (very short questions are OK)
-                && (trimmed.ends_with('?') || trimmed.ends_with('.')); // Allow questions or statements
+            // MINIMAL checks: just not empty and not absurdly long (for popup display)
+            let passes = !trimmed.is_empty() && trimmed.len() <= 1000;
             
             if !passes {
-                warn!("🚫 [Question Gen] Filtered out question (basic check failed): '{}'", &trimmed[..trimmed.len().min(50)]);
+                warn!("🚫 [Question Gen] Filtered out (empty or too long): '{}'", &trimmed[..trimmed.len().min(50)]);
             } else {
-                info!("✅ [Question Gen] Question passed basic filter: '{}'", &trimmed[..trimmed.len().min(100)]);
+                info!("✅ [Question Gen] Question accepted: '{}'", &trimmed[..trimmed.len().min(100)]);
             }
             passes
         })
         .collect();
     
-    // CRITICAL FIX: If no questions passed filter, use the first raw question anyway (very permissive fallback)
-    // This ensures we always show something if the LLM generated questions
+    // AGGRESSIVE FALLBACK: If no questions passed, use ANY raw question
     if filtered_questions.is_empty() && questions_before_filter > 0 {
-        warn!("⚠️ [Question Gen] All questions filtered out, but we have {} raw questions. Using first one anyway.", questions_before_filter);
-        // Use the first raw question from the original list
-        if let Some(first_q) = questions.first() {
-            let trimmed_q = first_q.trim();
+        warn!("⚠️ [Question Gen] All questions filtered, using raw questions without any filtering");
+        // Accept ANY non-empty question, even if very long
+        for q in &questions {
+            let trimmed_q = q.trim();
             if !trimmed_q.is_empty() {
-                info!("✅ [Question Gen] Using fallback question: '{}'", &trimmed_q[..trimmed_q.len().min(100)]);
-                filtered_questions.push(trimmed_q.to_string());
-            }
-        }
-        
-        // If still empty, try to extract from response text
-        if filtered_questions.is_empty() {
-            let extracted = extract_questions_from_text(&response_clone);
-            if let Some(first_q) = extracted.first() {
-                info!("✅ [Question Gen] Using extracted fallback question: '{}'", &first_q[..first_q.len().min(100)]);
-                filtered_questions.push(first_q.clone());
+                // Truncate if too long, but still use it
+                let final_q = if trimmed_q.len() > 1000 {
+                    format!("{}...", &trimmed_q[..997])
+                } else {
+                    trimmed_q.to_string()
+                };
+                info!("✅ [Question Gen] Using raw question (no filtering): '{}'", &final_q[..final_q.len().min(100)]);
+                filtered_questions.push(final_q);
+                break; // Take first one
             }
         }
     }
     
-    // Convert to Question structs
-    let questions: Vec<Question> = filtered_questions
-        .into_iter()
-        .map(|text| {
-            Question {
-                text: text.to_string(),
-                context: transcript_chunk.to_string(),
+    // If still empty, extract from response with ultra-relaxed rules
+    if filtered_questions.is_empty() {
+        let extracted = extract_questions_from_text(&response_clone);
+        for q in &extracted {
+            let trimmed_q = q.trim();
+            if !trimmed_q.is_empty() {
+                let final_q = if trimmed_q.len() > 1000 {
+                    format!("{}...", &trimmed_q[..997])
+                } else {
+                    trimmed_q.to_string()
+                };
+                info!("✅ [Question Gen] Using extracted question: '{}'", &final_q[..final_q.len().min(100)]);
+                filtered_questions.push(final_q);
+                break;
             }
-        })
-        .take(3) // Take up to 3 questions (frontend will show first one)
-        .collect();
+        }
+    }
+    
+    // FINAL FALLBACK: Use generic question if we have ANY response
+    if filtered_questions.is_empty() && !response_clone.trim().is_empty() {
+        warn!("⚠️ [Question Gen] No questions extracted, using generic fallback");
+        filtered_questions.push("Can you provide more details about this?".to_string());
+    }
+    
+    // ABSOLUTE LAST RESORT: If response is empty, still generate a question
+    if filtered_questions.is_empty() {
+        warn!("⚠️ [Question Gen] Response was empty, using default question");
+        filtered_questions.push("What should we clarify about this?".to_string());
+    }
+    
+    // Convert to Question structs
+    // Take up to 5 questions for popup (frontend will show first one)
+    // CRITICAL: Always return at least 1 question if we have any
+    let questions: Vec<Question> = if filtered_questions.is_empty() {
+        // This should never happen due to fallbacks, but just in case
+        vec![Question {
+            text: "What needs clarification?".to_string(),
+            context: transcript_chunk.to_string(),
+        }]
+    } else {
+        filtered_questions
+            .into_iter()
+            .map(|text| {
+                Question {
+                    text: text.to_string(),
+                    context: transcript_chunk.to_string(),
+                }
+            })
+            .take(5) // Up to 5 questions for popup display
+            .collect()
+    };
 
     info!("📊 [Question Gen] Filtering results: {} before, {} after", questions_before_filter, questions.len());
     
@@ -395,19 +473,27 @@ fn extract_questions_from_text(text: &str) -> Vec<String> {
         }
     }
     
-    // Also extract questions from lines ending with "?"
+    // ULTRA-RELAXED extraction: accept almost any line for popup display
     for line in text.lines() {
         let trimmed = line.trim();
-        // Remove common prefixes and extract question
+        // Remove common prefixes
         let cleaned = trimmed
             .trim_start_matches("- ")
             .trim_start_matches("* ")
             .trim_start_matches("• ")
             .trim_start_matches("\"")
+            .trim_start_matches("'")
+            .trim_start_matches("1. ")
+            .trim_start_matches("2. ")
+            .trim_start_matches("3. ")
+            .trim_start_matches("4. ")
+            .trim_start_matches("5. ")
             .trim_end_matches("\"")
+            .trim_end_matches("'")
             .trim();
         
-        if cleaned.ends_with('?') && cleaned.len() > 10 && cleaned.len() <= 200 {
+        // ACCEPT ANY non-empty line that's not too long - no other requirements
+        if !cleaned.is_empty() && cleaned.len() <= 1000 {
             questions.push(cleaned.to_string());
         }
     }

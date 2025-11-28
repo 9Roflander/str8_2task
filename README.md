@@ -1,115 +1,163 @@
 # str8_2task
 
-Privacy-first AI meeting assistant for local transcription and summarization.
+str8_2task is a privacy-first AI meeting copilot that records audio, transcribes it locally (Whisper/Parakeet engines), and generates summaries, clarifying questions, and structured minutes without sending any data to third-party services.
 
-## Overview
+---
 
-str8_2task is a desktop application that captures, transcribes, and summarizes meetings entirely on your local machine. All processing happens locally—no data leaves your device.
+## Table of Contents
 
-## Features
+1. [Architecture](#architecture)
+2. [Prerequisites](#prerequisites)
+3. [Repository Layout](#repository-layout)
+4. [Mac Setup Guide (All Components)](#mac-setup-guide-all-components)
+   - [1. Clone & bootstrap](#1-clone--bootstrap)
+   - [2. Backend stack](#2-backend-stack)
+   - [3. Frontend / Tauri desktop app](#3-frontend--tauri-desktop-app)
+   - [4. Launch checklist](#4-launch-checklist)
+5. [Development scripts](#development-scripts)
+6. [Troubleshooting](#troubleshooting)
+7. [License](#license)
 
-- Real-time transcription using Whisper or Parakeet models
-- AI-powered meeting summaries
-- Multi-platform support (macOS, Windows, Linux)
-- GPU acceleration support
-- Complete privacy—all data stays local
-- **Audio capture**: Listens to selected apps or all system audio (macOS)
-- Microphone mute/unmute during recording
+---
 
-## Installation
+## Architecture
 
-### Windows
+| Piece        | Tech                                                     | Notes                                                           |
+|--------------|----------------------------------------------------------|-----------------------------------------------------------------|
+| Desktop UI   | Next.js 14 + Tauri 2                                     | Provides the meeting controls, transcript view, dashboards      |
+| Audio stack  | Rust (CoreAudio capture, Whisper-rs / Parakeet ONNX)     | Records mic + system audio, handles VAD, chunking, transcription |
+| Backend API  | Python 3.12 (FastAPI)                                    | Persists meeting data, exposes Jira/extension integrations      |
+| Database     | SQLite via SQLx (Rust) / SQLAlchemy (Python)             | Stored in `~/Library/Application Support/com.str8_2task.ai/...` |
+| LLM bridge   | Local models (Ollama) or remote providers (Gemini etc.)  | All requests proxied through the local backend                  |
 
-Download the latest release from [Releases](https://github.com/9Roflander/str8_2task/releases/latest).
+Everything runs locally on macOS: audio capture, LLM calls (if using local models), summarization, and persistence.
 
-### macOS
+---
 
-Download the DMG file for your architecture from [Releases](https://github.com/9Roflander/str8_2task/releases/latest).
+## Prerequisites
 
-### Linux
+Install the following once:
 
-Build from source:
+- **Homebrew** (recommended)  
+- **Xcode Command Line Tools**: `xcode-select --install`
+- **Rust toolchain** (stable) with `rustup`, plus `rustfmt` & `clippy`:  
+  `rustup component add rustfmt clippy`
+- **Node.js 18+** (via `nvm` or `fnm`)
+- **pnpm 8+**: `npm install -g pnpm`
+- **Python 3.12** + `virtualenv`
+- **ffmpeg** (audio merge checkpoints): `brew install ffmpeg`
 
-```bash
-git clone https://github.com/9Roflander/str8_2task.git
-cd str8_2task/frontend
-pnpm install
-pnpm run tauri:build
+Optional for GPU acceleration:
+- Apple Silicon: Metal is auto-enabled.
+- Intel/NVIDIA: install appropriate drivers and set the Tauri feature flag (`pnpm tauri:dev:cuda`, etc.).
+
+---
+
+## Repository Layout
+
+```
+meeting-minutes/
+├── backend/                 # FastAPI service, Whisper server helpers
+│   ├── app/                 # FastAPI package
+│   ├── scripts/             # helper launch scripts
+│   └── venv/                # (ignored) local Python virtualenv
+├── frontend/
+│   ├── src/                 # Next.js app
+│   ├── src-tauri/           # Tauri Rust crate
+│   └── package.json
+└── README.md
 ```
 
-## Development
+---
 
-### Prerequisites
+## Mac Setup Guide (All Components)
 
-- Node.js (v18+)
-- Rust (latest stable)
-- pnpm (v8+)
-- Python 3.12+ (for backend)
-
-### Setup
+### 1. Clone & bootstrap
 
 ```bash
-git clone https://github.com/9Roflander/str8_2task.git
-cd str8_2task/frontend
-pnpm install
-pnpm run tauri:dev
+git clone https://github.com/9Roflander/str8_2task.git meeting-minutes
+cd meeting-minutes
 ```
 
-## Running the Application (macOS)
+### 2. Backend stack
 
-To run the full application on macOS, you need to start both the backend and frontend services.
+> Terminal A
 
-### Quick Start
-
-**Terminal 1 - Backend Server:**
 ```bash
 cd backend
+python3 -m venv venv
 source venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 5167 --reload
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# start FastAPI + optional Whisper relay
+uvicorn app.main:app --host 0.0.0.0 --port 5167 --reload
 ```
 
-**Terminal 2 - Frontend/Tauri App:**
+Backend services now listen at:
+- API root: `http://localhost:5167`
+- Docs: `http://localhost:5167/docs`
+
+**Optional helper** (starts Whisper server + FastAPI in one go):
+```bash
+./clean_start_backend.sh small   # or large-v3, etc.
+```
+
+### 3. Frontend / Tauri desktop app
+
+> Terminal B
+
 ```bash
 cd frontend
+pnpm install
+
+# run Next.js + Tauri dev environment (Metal GPU by default on macOS)
 pnpm tauri:dev
 ```
 
-The Tauri app window will open automatically once compilation completes. The backend API will be available at `http://localhost:5167`.
+This runs:
+- Next.js dev server on `http://localhost:3118`
+- Tauri dev window (desktop app) with live reload
 
-### Alternative: Using Helper Scripts
+### 4. Launch checklist
 
-**Start Backend with Whisper Server:**
-```bash
-cd backend
-./clean_start_backend.sh [model-name]
-# Example: ./clean_start_backend.sh small
-```
+1. **Backend healthy**: `curl http://localhost:5167/health` (should return 200).
+2. **Tauri window** pops up. If it doesn’t, check Mission Control or logs in `/tmp/tauri-dev.log`.
+3. **Audio permissions**: macOS will prompt the first time; approve “Microphone” + “Screen Recording” (for system audio capture).
+4. **Start recording** from the UI. Logs stream to `/tmp/tauri-dev.log` (frontend) and `/tmp/tauri.log` (Rust).
 
-This script will:
-- Start the Whisper transcription server (optional, if using Whisper models)
-- Start the Python FastAPI backend on port 5167
-- Handle model downloads and port configuration
+---
 
-**Start Frontend:**
-```bash
-cd frontend
-pnpm tauri:dev
-```
+## Development Scripts
 
-### Service URLs
+| Command | Description |
+|---------|-------------|
+| `pnpm tauri:dev` | Run Next.js + Tauri dev with default features |
+| `pnpm tauri:dev:cpu` | Force CPU-only build |
+| `pnpm tauri:dev:metal` | Explicit Metal build (default on macOS) |
+| `pnpm tauri:build` | Production desktop bundle |
+| `./backend/clean_start_backend.sh <model>` | Launch backend + Whisper helper |
 
-- **Backend API**: http://localhost:5167
-- **API Documentation**: http://localhost:5167/docs
-- **Frontend Dev Server**: http://localhost:3118 (Next.js)
-- **Whisper Server** (if started): http://localhost:8178 (default)
+---
 
-### Troubleshooting
+## Troubleshooting
 
-- **App window doesn't appear**: Check Mission Control (F3) or press Cmd+Tab to cycle through apps
-- **Port already in use**: Kill existing processes with `lsof -ti:5167 | xargs kill -9`
-- **Backend won't start**: Ensure virtual environment is activated and dependencies are installed
-- **Tauri compilation errors**: Run `cargo clean` in `frontend/src-tauri` and try again
+| Issue | Fix |
+|-------|-----|
+| `cargo` build fails with borrow errors | Check `/tmp/tauri-dev.log`; run `cd frontend/src-tauri && cargo fmt` + `cargo check` |
+| Tauri window missing | `Cmd+Tab` through apps, or `tail -f /tmp/tauri-dev.log` for errors |
+| Audio not captured | macOS privacy settings → enable Microphone & Screen Recording for `pnpm`/Tauri |
+| Backend port in use | `lsof -ti:5167 | xargs kill -9` |
+| LLM requests blocked | Ensure backend `.env` contains valid API keys or point to local Ollama |
+
+---
 
 ## License
 
-MIT License - see [LICENSE.md](LICENSE.md) for details.
+MIT — see [LICENSE.md](LICENSE.md).
+
+---
+
+### GitHub Push
+
+This README rewrite is local only. I don’t have permission to push to GitHub from this environment—run your usual `git add/commit/push` when you’re ready. ***

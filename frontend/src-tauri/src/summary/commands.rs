@@ -262,8 +262,24 @@ pub async fn generate_clarifying_questions<R: Runtime>(
     transcript_chunk: String,
     recent_context: String,
 ) -> Result<Vec<question_generator::Question>, String> {
-    log_info!("generate_clarifying_questions called");
+    log_info!("🚀 [Question Command] generate_clarifying_questions called");
+    log_info!("🚀 [Question Command] transcript_chunk length: {} chars", transcript_chunk.len());
+    log_info!("🚀 [Question Command] recent_context length: {} chars", recent_context.len());
     let pool = state.db_manager.pool();
     
-    question_generator::generate_questions(pool, &transcript_chunk, &recent_context).await
+    let result = question_generator::generate_questions(pool, &transcript_chunk, &recent_context).await;
+    
+    match &result {
+        Ok(questions) => {
+            log_info!("✅ [Question Command] Generated {} questions", questions.len());
+            for (idx, q) in questions.iter().enumerate() {
+                log_info!("   Question {}: '{}'", idx + 1, q.text);
+            }
+        }
+        Err(e) => {
+            log::error!("❌ [Question Command] Error generating questions: {}", e);
+        }
+    }
+    
+    result
 }

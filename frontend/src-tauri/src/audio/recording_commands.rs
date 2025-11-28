@@ -5,15 +5,21 @@
 
 use anyhow::Result;
 use log::{error, info, warn};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
+use std::collections::VecDeque;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tokio::task::JoinHandle;
 
-use super::{parse_audio_device, RecordingManager, DeviceEvent, DeviceMonitorType};
+use super::{parse_audio_device, DeviceEvent, DeviceMonitorType, RecordingManager};
+use crate::state::AppState;
+use crate::summary::question_generator;
 
 // Import transcription modules
 use super::transcription::{
@@ -34,6 +40,14 @@ static IS_RECORDING: AtomicBool = AtomicBool::new(false);
 // Global recording manager and transcription task to keep them alive during recording
 static RECORDING_MANAGER: Mutex<Option<RecordingManager>> = Mutex::new(None);
 static TRANSCRIPTION_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+
+// Clarifying question generation controls (tuned to avoid spammy popups)
+const QUESTION_DEBOUNCE_MS: u64 = 8_000; // Wait at least 8s between questions
+const QUESTION_MIN_CHARS: usize = 40; // Require meaningful chunk size
+const QUESTION_CONTEXT_WINDOW: usize = 5;
+static LAST_QUESTION_EMIT_MS: AtomicU64 = AtomicU64::new(0);
+static QUESTION_CONTEXT_BUFFER: Lazy<Mutex<VecDeque<String>>> =
+    Lazy::new(|| Mutex::new(VecDeque::new()));
 
 // ============================================================================
 // PUBLIC TYPES
@@ -156,6 +170,7 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
     info!("🔍 Setting IS_RECORDING to true and resetting SPEECH_DETECTED_EMITTED");
     IS_RECORDING.store(true, Ordering::SeqCst);
     reset_speech_detected_flag(); // Reset for new recording session
+    reset_question_flow_state();
 
     // Start optimized parallel transcription task and store handle
     let task_handle = transcription::start_transcription_task(app.clone(), transcription_receiver);
@@ -167,12 +182,25 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
     // CRITICAL: Listen for transcript-update events and save to recording manager
     // This enables transcript history persistence for page reload sync
     let app_for_listener = app.clone();
+    let question_pool = app
+        .state::<AppState>()
+        .db_manager
+        .pool()
+        .clone();
     tokio::spawn(async move {
         use tauri::Listener;
 
+        let pool_for_listener = question_pool.clone();
+        let listener_app = app_for_listener.clone();
         app_for_listener.listen("transcript-update", move |event: tauri::Event| {
             // Parse the transcript update from the event payload
             if let Ok(update) = serde_json::from_str::<TranscriptUpdate>(event.payload()) {
+                info!(
+                    "📥 [Event Receive] transcript-update seq_id={} len={} partial={}",
+                    update.sequence_id,
+                    update.text.len(),
+                    update.is_partial
+                );
                 // Create structured transcript segment
                 let segment = crate::audio::recording_saver::TranscriptSegment {
                     id: format!("seg_{}", update.sequence_id),
@@ -191,6 +219,9 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
                         manager.add_transcript_segment(segment);
                     }
                 }
+
+                let question_app = listener_app.clone();
+                maybe_generate_clarifying_question(&question_app, &pool_for_listener, &update);
             }
         });
 
@@ -403,6 +434,8 @@ pub async fn stop_recording<R: Runtime>(
         info!("Recording was not active");
         return Ok(());
     }
+
+    reset_question_flow_state();
 
     // Emit shutdown progress to frontend
     let _ = app.emit(
@@ -769,6 +802,120 @@ pub async fn stop_recording<R: Runtime>(
 
     info!("🎉 Recording stopped successfully with ZERO transcript chunks lost");
     Ok(())
+}
+
+fn reset_question_flow_state() {
+    LAST_QUESTION_EMIT_MS.store(0, Ordering::SeqCst);
+    if let Ok(mut buffer) = QUESTION_CONTEXT_BUFFER.lock() {
+        buffer.clear();
+    }
+}
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn maybe_generate_clarifying_question<R: Runtime>(
+    app: &AppHandle<R>,
+    pool: &SqlitePool,
+    update: &TranscriptUpdate,
+) {
+    if update.is_partial {
+        return;
+    }
+
+    let trimmed = update.text.trim();
+    if trimmed.chars().count() < QUESTION_MIN_CHARS {
+        info!(
+            "📝 [Question Flow] Skipping seq_id {} (text too short for question: {} chars)",
+            update.sequence_id,
+            trimmed.len()
+        );
+        return;
+    }
+
+    let now = now_millis();
+    let last = LAST_QUESTION_EMIT_MS.load(Ordering::SeqCst);
+    if now.saturating_sub(last) < QUESTION_DEBOUNCE_MS {
+        info!(
+            "⏱️ [Question Flow] Debounced question generation for seq_id {} ({}ms since last)",
+            update.sequence_id,
+            now.saturating_sub(last)
+        );
+        return;
+    }
+
+    LAST_QUESTION_EMIT_MS.store(now, Ordering::SeqCst);
+
+    let mut buffer = QUESTION_CONTEXT_BUFFER
+        .lock()
+        .expect("QUESTION_CONTEXT_BUFFER poisoned");
+    buffer.push_back(trimmed.to_string());
+    while buffer.len() > QUESTION_CONTEXT_WINDOW {
+        buffer.pop_front();
+    }
+    let context = buffer
+        .iter()
+        .take(buffer.len().saturating_sub(1))
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
+    let chunk_text = trimmed.to_string();
+    drop(buffer);
+
+    let sequence_id = update.sequence_id;
+    let pool = pool.clone();
+    let app_handle = app.clone();
+
+    tauri::async_runtime::spawn(async move {
+        info!(
+            "🤖 [Question Flow] Backend generating clarifying question(s) for seq_id {}",
+            sequence_id
+        );
+
+        match question_generator::generate_questions(&pool, &chunk_text, &context).await {
+            Ok(questions) if !questions.is_empty() => {
+                info!(
+                    "✅ [Question Flow] Generated {} question(s) for seq_id {}",
+                    questions.len(),
+                    sequence_id
+                );
+
+                let payload = serde_json::json!({
+                    "sequence_id": sequence_id,
+                    "questions": questions,
+                    "chunk": chunk_text,
+                    "context": context
+                });
+
+                info!(
+                    "📤 [Question Emit] Emitting clarifying-question-generated event - seq_id: {}",
+                    sequence_id
+                );
+                if let Err(e) = app_handle.emit("clarifying-question-generated", payload) {
+                    error!(
+                        "❌ [Question Flow] Failed to emit clarifying-question-generated event: {}",
+                        e
+                    );
+                }
+            }
+            Ok(_) => {
+                info!(
+                    "ℹ️ [Question Flow] Question generator returned empty response for seq_id {}",
+                    sequence_id
+                );
+            }
+            Err(e) => {
+                warn!(
+                    "❌ [Question Flow] Failed to generate clarifying question for seq_id {}: {}",
+                    sequence_id, e
+                );
+            }
+        }
+    });
 }
 
 /// Check if recording is active

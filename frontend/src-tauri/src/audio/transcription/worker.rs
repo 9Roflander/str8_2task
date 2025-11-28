@@ -219,14 +219,28 @@ pub fn start_transcription_task<R: Runtime>(
                                             duration: chunk_duration,
                                         };
 
+                                        // Log before emitting to verify events are being sent
+                                        info!(
+                                            "📤 [Event Emit] Worker {}: Emitting transcript-update event - seq_id: {}, text_length: {}, text_preview: '{}'",
+                                            worker_id,
+                                            update.sequence_id,
+                                            update.text.len(),
+                                            update.text.chars().take(50).collect::<String>()
+                                        );
+                                        
                                         if let Err(e) = app_clone.emit("transcript-update", &update)
                                         {
                                             error!(
-                                                "Worker {}: Failed to emit transcript update: {}",
+                                                "❌ Worker {}: Failed to emit transcript update: {}",
                                                 worker_id, e
                                             );
+                                        } else {
+                                            info!(
+                                                "✅ [Event Emit] Worker {}: Successfully emitted transcript-update event - seq_id: {}",
+                                                worker_id,
+                                                update.sequence_id
+                                            );
                                         }
-                                        // PERFORMANCE: Removed verbose logging of every emission
                                     } else if !transcript.trim().is_empty() && should_log_this_chunk
                                     {
                                         // PERFORMANCE: Only log low-confidence results occasionally
