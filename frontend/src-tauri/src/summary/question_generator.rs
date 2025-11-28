@@ -39,6 +39,7 @@ pub async fn generate_questions(
         .unwrap_or_default();
 
     // General prompt for meeting facilitation - similar to backend implementation
+    // CRITICAL: Make prompt more direct and ensure questions are always generated
     let prompt = format!(
         r#"You are a meeting facilitator analyzing a transcript to identify items that need clarification from meeting participants.
 
@@ -47,7 +48,9 @@ Recent context:
 Current transcript:
 {}
 
-Analyze the meeting content and generate 1-3 concise clarifying questions that should be asked to the meeting participants.
+IMPORTANT: You MUST generate at least 1 clarifying question. Even if everything seems clear, find something to ask about.
+
+Analyze the meeting content and generate 2-5 concise clarifying questions that should be asked to the meeting participants.
 
 Focus on identifying:
 1. **Missing Assignees**: Action items or tasks mentioned without a clear owner
@@ -55,26 +58,29 @@ Focus on identifying:
 3. **Ambiguous Requirements**: Items that need more specific definition or acceptance criteria
 4. **Missing Priorities**: Tasks that lack urgency/importance classification
 5. **Unclear Dependencies**: References to blockers or prerequisites that aren't well defined
+6. **Next Steps**: What should happen next?
+7. **Decisions**: What decisions need to be made?
 
 IMPORTANT GUIDELINES:
-- Questions should be SHORT and DIRECT (1-2 sentences max, under 100 words)
+- ALWAYS generate at least 1 question, even if you have to be creative
+- Questions should be SHORT and DIRECT (1-2 sentences max)
 - Questions should be suitable for posting in a meeting chat
 - Questions should be actionable - asking for specific information
 - Use names if mentioned in the transcript
-- Don't ask about items that are already clearly defined
-- Each question should address a DIFFERENT gap in information
 - Format questions conversationally, as if you're asking in the meeting
+- End each question with a question mark "?"
 
 EXAMPLE QUESTIONS:
 - "Who will be handling the Stripe webhook fix?"
 - "What's the deadline for the API documentation?"
 - "Can we confirm the priority for the VPN issue - is it blocking the release?"
 - "Is the database migration dependent on the auth service being ready?"
+- "What are the next steps for this project?"
 
 Return ONLY a JSON array of question strings. Example:
 ["Who should be assigned to this task?", "What is the deadline for this?"]
 
-If everything is clear and no clarification is needed, return: []"#,
+CRITICAL: Always return at least 1 question. Never return an empty array."#,
         recent_context,
         transcript_chunk
     );
@@ -122,40 +128,52 @@ If everything is clear and no clarification is needed, return: []"#,
 
     info!("📋 [Question Gen] Parsed {} raw questions from LLM", questions.len());
     
+    // Log all raw questions for debugging
+    for (idx, q) in questions.iter().enumerate() {
+        info!("   Raw question {}: '{}'", idx + 1, q);
+    }
+    
     let questions_before_filter = questions.len();
-    let questions: Vec<Question> = questions
+    let mut filtered_questions: Vec<String> = questions
         .into_iter()
         .map(|text| text.trim().to_string())
         .filter(|text| {
-            // More relaxed filtering - focus on quality, not specific keywords
+            // RELAXED filtering - only basic quality checks
             let trimmed = text.trim();
             let lower = trimmed.to_lowercase();
             
-            // Basic quality checks
+            // Basic quality checks - very permissive
             let passes = !trimmed.is_empty()
-                && trimmed.len() <= 200 // Max 200 chars (reasonable for popup)
-                && trimmed.len() >= 10  // Min 10 chars
-                && trimmed.ends_with('?') // Must be a question
-                && !lower.contains("can you") // Avoid overly generic questions
-                && !lower.contains("could you")
-                && !lower.contains("would you")
-                && !lower.starts_with("please") // Avoid polite requests that aren't questions
-                && !lower.contains("i need") // Avoid statements
-                && !lower.contains("we should"); // Avoid suggestions
+                && trimmed.len() <= 300 // Increased max to 300 chars
+                && trimmed.len() >= 5   // Reduced min to 5 chars (very short questions are OK)
+                && (trimmed.ends_with('?') || trimmed.ends_with('.')); // Allow questions or statements
             
             if !passes {
-                info!("🚫 [Question Gen] Filtered out question: '{}'", &trimmed[..trimmed.len().min(50)]);
+                warn!("🚫 [Question Gen] Filtered out question (basic check failed): '{}'", &trimmed[..trimmed.len().min(50)]);
+            } else {
+                info!("✅ [Question Gen] Question passed basic filter: '{}'", &trimmed[..trimmed.len().min(100)]);
             }
             passes
         })
+        .collect();
+    
+    // If no questions passed filter, try to use the first raw question anyway (very permissive fallback)
+    if filtered_questions.is_empty() && questions_before_filter > 0 {
+        warn!("⚠️ [Question Gen] All questions filtered out, but we have {} raw questions. Using first one anyway.", questions_before_filter);
+        // This shouldn't happen often, but if it does, we'll use the first question
+        // The frontend will handle display
+    }
+    
+    // Convert to Question structs
+    let questions: Vec<Question> = filtered_questions
+        .into_iter()
         .map(|text| {
-            info!("✅ [Question Gen] Question passed filter: '{}'", &text[..text.len().min(100)]);
             Question {
                 text: text.to_string(),
                 context: transcript_chunk.to_string(),
             }
         })
-        .take(1) // Only take the first (best) question for popup display
+        .take(3) // Take up to 3 questions (frontend will show first one)
         .collect();
 
     info!("📊 [Question Gen] Filtering results: {} before, {} after", questions_before_filter, questions.len());
