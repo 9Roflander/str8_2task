@@ -13,6 +13,8 @@ str8_2task is a desktop application that captures, transcribes, and summarizes m
 - Multi-platform support (macOS, Windows, Linux)
 - GPU acceleration support
 - Complete privacy—all data stays local
+- **Audio capture**: Listens to selected apps or all system audio (macOS)
+- Microphone mute/unmute during recording
 
 ## Installation
 
