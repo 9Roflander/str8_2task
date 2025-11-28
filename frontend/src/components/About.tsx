@@ -19,11 +19,11 @@ export function About() {
             <div className="text-center">
                 <div className="mb-3">
                     <Image 
-                        src="icon_128x128.png" 
+                        src="/logo.jpg" 
                         alt="str8_2task Logo" 
-                        width={64} 
-                        height={64}
-                        className="mx-auto"
+                        width={128} 
+                        height={128}
+                        className="mx-auto rounded"
                     />
                 </div>
                 {/* <h1 className="text-xl font-bold text-gray-900">str8_2task</h1> */}

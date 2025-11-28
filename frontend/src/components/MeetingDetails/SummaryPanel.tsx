@@ -186,7 +186,7 @@ export function SummaryPanel({
           />
         </div>
       ) : transcripts?.length > 0 && (
-        <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 min-w-0">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {summaryResponse && (
             <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4 max-h-1/3 overflow-y-auto overflow-x-auto">
               <h3 className="text-lg font-semibold mb-2">Meeting Summary</h3>
@@ -232,7 +232,7 @@ export function SummaryPanel({
               ) : null}
             </div>
           )}
-          <div className="p-6 w-full h-full min-w-0 overflow-y-auto overflow-x-auto">
+          <div className="flex-1 p-6 w-full min-w-0 min-h-0 overflow-y-auto overflow-x-auto">
             <BlockNoteSummaryView
               ref={summaryRef}
               summaryData={aiSummary}
